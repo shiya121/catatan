@@ -97,25 +97,61 @@ function escHtml(s) {
 
 /* ── RENDER SIDEBAR ── */
 function renderSidebar() {
-  const filtered = S.notes.filter(n => n.title.toLowerCase().includes(S.search.toLowerCase()));
+  const q = S.search.toLowerCase().trim();
+  const filtered = S.notes.filter(n => {
+    if (!q) return true;
+    if (n.title.toLowerCase().includes(q)) return true;
+    if (n.tag.toLowerCase().includes(q)) return true;
+    return n.blocks.some(b => {
+      const texts = [b.content, b.front, b.back].filter(Boolean);
+      if (texts.some(t => t.toLowerCase().includes(q))) return true;
+      if (b.rows) return b.rows.some(row => row.some(c => String(c||'').toLowerCase().includes(q)));
+      return false;
+    });
+  });
   const list = document.getElementById('note-list');
   if (!list) return;
-  list.innerHTML = filtered.map(n => `
-    <div class="note-item ${n.id === S.activeId ? 'active' : ''}" data-id="${n.id}">
-      <div class="note-item-top">
-        <span class="note-tag">${escHtml(n.tag)}</span>
-        ${n.starred ? '<span class="note-star">★</span>' : ''}
-        <button class="note-delete" data-del="${n.id}" title="Hapus">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
-        </button>
-      </div>
-      <div class="note-title">${escHtml(n.title)}</div>
-      <div class="note-time">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        ${timeAgo(n.updatedAt)}
-      </div>
-    </div>
-  `).join('');
+
+  if (q && filtered.length === 0) {
+    list.innerHTML = `<div class="search-empty"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><p>Tidak ditemukan</p><small>Coba kata kunci lain</small></div>`;
+  } else {
+    list.innerHTML = filtered.map(n => {
+      // Find where the match is for indicator
+      let matchHint = '';
+      if (q) {
+        if (!n.title.toLowerCase().includes(q) && n.tag.toLowerCase().includes(q)) {
+          matchHint = `<span class="match-hint">tag: ${escHtml(n.tag)}</span>`;
+        } else if (!n.title.toLowerCase().includes(q)) {
+          // match in content
+          const matchBlock = n.blocks.find(b => {
+            const texts = [b.content, b.front, b.back].filter(Boolean);
+            return texts.some(t => t.toLowerCase().includes(q)) ||
+              (b.rows && b.rows.some(row => row.some(c => String(c||'').toLowerCase().includes(q))));
+          });
+          if (matchBlock) {
+            const snippet = (matchBlock.content || matchBlock.front || '').slice(0, 40);
+            matchHint = `<span class="match-hint">...${escHtml(snippet)}...</span>`;
+          }
+        }
+      }
+      return `
+      <div class="note-item ${n.id === S.activeId ? 'active' : ''}" data-id="${n.id}">
+        <div class="note-item-top">
+          <span class="note-tag">${escHtml(n.tag)}</span>
+          ${n.starred ? '<span class="note-star">★</span>' : ''}
+          <button class="note-delete" data-del="${n.id}" title="Hapus">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+        <div class="note-title">${escHtml(n.title)}</div>
+        ${matchHint}
+        <div class="note-time">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          ${timeAgo(n.updatedAt)}
+        </div>
+      </div>`;
+    }).join('');
+  }
 
   // stats
   const starred = S.notes.filter(n => n.starred).length;
@@ -178,13 +214,13 @@ function renderBlock(block, idx) {
   }
 
   if (block.type === 'callout') {
-    const icons = { tip:'💡', info:'ℹ️', warning:'⚠️' };
+    const icons  = { tip:'TIP', info:'INF', warning:'WRN' };
     const labels = { tip:'Tips', info:'Info', warning:'Perhatian' };
     return `
     <div class="block-wrap" data-block-idx="${idx}">
       ${controls}
       <div class="block-callout ${block.variant||'info'}">
-        <span class="callout-icon">${icons[block.variant]||'📌'}</span>
+        <span class="callout-icon callout-icon-${block.variant||'info'}">${icons[block.variant]||'NOTE'}</span>
         <div>
           <div class="callout-lbl">${labels[block.variant]||'Catatan'}</div>
           <div class="callout-text" contenteditable="true"
@@ -200,12 +236,12 @@ function renderBlock(block, idx) {
       <div class="flashcard-wrap" data-fc="${idx}">
         <div class="flashcard-inner">
           <div class="flashcard-face front">
-            <div class="fc-label">❓ Pertanyaan</div>
+            <div class="fc-label">Pertanyaan</div>
             <div class="fc-text">${escHtml(block.front)}</div>
             <div class="fc-hint">Klik untuk lihat jawaban →</div>
           </div>
           <div class="flashcard-face back">
-            <div class="fc-label">✅ Jawaban</div>
+            <div class="fc-label">Jawaban</div>
             <div class="fc-text">${escHtml(block.back)}</div>
             <div class="fc-hint">← Klik untuk kembali</div>
           </div>
@@ -225,35 +261,94 @@ function renderBlock(block, idx) {
       </div>
     </div>`;
 
+  if (block.type === 'problem-solver') {
+    const isGeometry = block.subtype === 'geometry';
+    const icon = isGeometry ? '[GEO]' : '[MTK]';
+    const label = isGeometry ? 'Penyelesaian Geometri' : 'Penyelesaian Soal';
+    // Parse sections from content
+    const lines = (block.content || '').split('\n');
+    const formatted = lines.map(l => {
+      if (l.startsWith('Bangun:') || l.startsWith('Ditanya:') || l.startsWith('Jawaban:') || l.startsWith('Kesimpulan:')) {
+        return `<div class="solver-key">${escHtml(l)}</div>`;
+      }
+      if (l.startsWith('Ukuran:') || l.startsWith('Rumus:') || l.startsWith('Perhitungan:') || l.startsWith('Diketahui:') || l.startsWith('Penyelesaian:')) {
+        return `<div class="solver-section">${escHtml(l)}</div>`;
+      }
+      if (l.trim().startsWith('-')) {
+        return `<div class="solver-item">${escHtml(l)}</div>`;
+      }
+      return l.trim() ? `<div class="solver-line">${escHtml(l)}</div>` : '<div class="solver-gap"></div>';
+    }).join('');
+    return `
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="block-problem-solver">
+        <div class="solver-label">${icon} ${label}</div>
+        <div class="solver-body">${formatted}</div>
+      </div>
+    </div>`;
+  }
+
   return '';
 }
 
 /* ── ADD BLOCK MENU ── */
 const TABLE_TEMPLATES = [
-  { label: '2 Kolom (Label | Nilai)', rows: [['Label','Nilai'],['Item 1','Data 1'],['Item 2','Data 2']] },
-  { label: '3 Kolom Umum', rows: [['No','Nama','Keterangan'],['1','',''],['2','','']] },
-  { label: 'Perbandingan A vs B', rows: [['Aspek','A','B'],['Kecepatan','',''],['Keamanan','','']] },
-  { label: 'Jadwal Pelajaran', rows: [['Hari','Pelajaran','Jam'],['Senin','',''],['Selasa','']] },
-  { label: 'OSI Layer Style', rows: [['Layer','Nama','Protokol','Fungsi'],['7','Application','HTTP',''],['6','Presentation','SSL','']] },
-  { label: 'Tabel Nilai Siswa', rows: [['Nama','Nilai','Keterangan'],['','',''],['','','']] },
+  { label: 'Kosong',            cols: 2, rows: 3, headers: [] },
+  { label: 'Label — Nilai',     cols: 2, rows: 4, headers: ['Label','Nilai'] },
+  { label: '3 Kolom Umum',      cols: 3, rows: 4, headers: ['No','Nama','Keterangan'] },
+  { label: 'Perbandingan A/B',  cols: 3, rows: 4, headers: ['Aspek','A','B'] },
+  { label: 'Jadwal Pelajaran',  cols: 3, rows: 6, headers: ['Hari','Pelajaran','Jam'] },
+  { label: 'OSI Layer',         cols: 4, rows: 8, headers: ['Layer','Nama','Protokol','Fungsi'] },
+  { label: 'Nilai Siswa',       cols: 3, rows: 6, headers: ['Nama','Nilai','Keterangan'] },
 ];
+
+function buildTableRows(cols, rows, headers) {
+  const head = Array.from({length: cols}, (_,i) => headers[i] || `Kolom ${i+1}`);
+  const body = Array.from({length: rows - 1}, () => Array(cols).fill(''));
+  return [head, ...body];
+}
 
 function renderAddBlockMenu() {
   return `
-    <div class="add-block-menu" id="add-block-menu">
-      <button class="add-block-item" data-add="heading"><span>📌</span>Heading</button>
-      <button class="add-block-item" data-add="text"><span>📝</span>Teks</button>
-      <button class="add-block-item" data-add="code"><span>💻</span>Kode</button>
-      <button class="add-block-item" data-add="callout-tip"><span>💡</span>Tips</button>
-      <button class="add-block-item" data-add="callout-info"><span>ℹ️</span>Info</button>
-      <button class="add-block-item" data-add="callout-warning"><span>⚠️</span>Peringatan</button>
-      <button class="add-block-item" data-add="flashcard"><span>🃏</span>Flashcard</button>
-      <button class="add-block-item" data-add="table-picker"><span>📊</span>Tabel...</button>
+    <div class="add-block-strip" id="add-block-menu">
+      <button class="strip-item" data-add="heading"  title="Heading"><span class="strip-icon">H</span><span class="strip-lbl">Judul</span></button>
+      <button class="strip-item" data-add="text"     title="Teks"><span class="strip-icon">T</span><span class="strip-lbl">Teks</span></button>
+      <button class="strip-item" data-add="code"     title="Kode"><span class="strip-icon">&lt;/&gt;</span><span class="strip-lbl">Kode</span></button>
+      <button class="strip-item" data-add="callout-tip"     title="Tips"><span class="strip-icon strip-icon-tip">TIP</span><span class="strip-lbl">Tips</span></button>
+      <button class="strip-item" data-add="callout-info"    title="Info"><span class="strip-icon strip-icon-info">INF</span><span class="strip-lbl">Info</span></button>
+      <button class="strip-item" data-add="callout-warning" title="Peringatan"><span class="strip-icon strip-icon-warn">WRN</span><span class="strip-lbl">Warn</span></button>
+      <button class="strip-item" data-add="flashcard" title="Flashcard"><span class="strip-icon">Q/A</span><span class="strip-lbl">Flash</span></button>
+      <button class="strip-item" data-add="table-picker" title="Tabel"><span class="strip-icon">▦</span><span class="strip-lbl">Tabel</span></button>
     </div>
-    <div id="table-tpl-wrap" class="hidden" style="margin-top:8px;">
-      <p style="font-size:11px;color:#64748b;margin-bottom:6px;">Pilih template tabel:</p>
-      <div class="table-templates">
-        ${TABLE_TEMPLATES.map((t,i) => `<button class="tpl-btn" data-tpl="${i}">${t.label}</button>`).join('')}
+    <div id="table-tpl-wrap" class="hidden">
+      <div class="table-builder">
+        <div class="table-builder-row">
+          <div class="tbl-field">
+            <label class="tbl-label">Tipe</label>
+            <select id="tbl-tpl-sel" class="tbl-select">
+              ${TABLE_TEMPLATES.map((t,i) => `<option value="${i}">${t.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="tbl-field">
+            <label class="tbl-label">Kolom</label>
+            <div class="tbl-stepper">
+              <button class="step-btn" data-step="cols" data-dir="-1">-</button>
+              <input id="tbl-cols" class="step-val" type="number" min="1" max="10" value="2"/>
+              <button class="step-btn" data-step="cols" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="tbl-field">
+            <label class="tbl-label">Baris</label>
+            <div class="tbl-stepper">
+              <button class="step-btn" data-step="rows" data-dir="-1">-</button>
+              <input id="tbl-rows" class="step-val" type="number" min="2" max="30" value="3"/>
+              <button class="step-btn" data-step="rows" data-dir="1">+</button>
+            </div>
+          </div>
+          <button id="tbl-create-btn" class="tbl-create-btn">Buat Tabel</button>
+        </div>
+        <div id="tbl-preview" class="tbl-preview"></div>
       </div>
     </div>`;
 }
@@ -291,19 +386,26 @@ function renderEditor() {
     </div>
 
     <div class="add-block-wrap">
-      <button id="add-block-btn" class="add-block-btn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-        Tambah Blok
-      </button>
+      <div class="add-block-divider">
+        <button id="add-block-btn" class="add-block-toggle">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Tambah blok
+          <svg id="add-block-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s;transform:rotate(${S.addBlockOpen?'180':'0'}deg)"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+      </div>
       <div id="add-block-panel" class="${S.addBlockOpen ? '' : 'hidden'}">
         ${renderAddBlockMenu()}
       </div>
     </div>
 
-    <div style="margin-top:18px;">
-      <button id="btn-upload-img" class="add-block-btn" style="border-style:dashed;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-        Upload gambar / tulisan tangan → OCR ke teks
+    <div class="upload-strip">
+      <button id="btn-upload-img" class="upload-strip-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+        Scan Gambar / Tulisan Tangan
+      </button>
+      <button id="btn-upload-math" class="upload-strip-btn math">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+        Scan Soal Matematika / Geometri
       </button>
     </div>
   `;
@@ -424,21 +526,70 @@ function bindEditorEvents() {
     });
   });
 
-  /* table templates */
-  document.querySelectorAll('[data-tpl]').forEach(btn => {
+  /* table builder */
+  const tplSel  = document.getElementById('tbl-tpl-sel');
+  const colsInp = document.getElementById('tbl-cols');
+  const rowsInp = document.getElementById('tbl-rows');
+
+  function syncPreview() {
+    const cols = Math.max(1, Math.min(10, parseInt(colsInp?.value)||2));
+    const rows = Math.max(2, Math.min(30, parseInt(rowsInp?.value)||3));
+    const tpl  = TABLE_TEMPLATES[parseInt(tplSel?.value)||0];
+    const head = Array.from({length: cols}, (_,i) => tpl.headers[i] || `Kolom ${i+1}`);
+    const prev = document.getElementById('tbl-preview');
+    if (!prev) return;
+    prev.innerHTML = `
+      <table class="tbl-prev-table">
+        <thead><tr>${head.map(h => `<th>${escHtml(h)}</th>`).join('')}</tr></thead>
+        <tbody>${Array.from({length: rows-1}, () =>
+          `<tr>${Array(cols).fill('<td></td>').join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="tbl-prev-info">${cols} kolom &times; ${rows} baris (termasuk header)</div>`;
+  }
+
+  tplSel?.addEventListener('change', () => {
+    const tpl = TABLE_TEMPLATES[parseInt(tplSel.value)||0];
+    if (colsInp) colsInp.value = tpl.cols;
+    if (rowsInp) rowsInp.value = tpl.rows;
+    syncPreview();
+  });
+  colsInp?.addEventListener('input', syncPreview);
+  rowsInp?.addEventListener('input', syncPreview);
+
+  document.querySelectorAll('.step-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const tpl = TABLE_TEMPLATES[parseInt(btn.dataset.tpl)];
-      const note = activeNote();
-      note.blocks.push({ type: 'table', rows: JSON.parse(JSON.stringify(tpl.rows)) });
-      note.updatedAt = Date.now();
-      save();
-      S.addBlockOpen = false;
-      renderEditor();
+      const target = btn.dataset.step; // 'cols' | 'rows'
+      const inp = document.getElementById(`tbl-${target}`);
+      if (!inp) return;
+      const dir  = parseInt(btn.dataset.dir);
+      const min  = target === 'cols' ? 1 : 2;
+      const max  = target === 'cols' ? 10 : 30;
+      inp.value  = Math.max(min, Math.min(max, (parseInt(inp.value)||2) + dir));
+      syncPreview();
     });
   });
 
+  document.getElementById('tbl-create-btn')?.addEventListener('click', () => {
+    const note = activeNote();
+    if (!note) return;
+    const cols = Math.max(1, Math.min(10, parseInt(colsInp?.value)||2));
+    const rows = Math.max(2, Math.min(30, parseInt(rowsInp?.value)||3));
+    const tpl  = TABLE_TEMPLATES[parseInt(tplSel?.value)||0];
+    note.blocks.push({ type: 'table', rows: buildTableRows(cols, rows, tpl.headers) });
+    note.updatedAt = Date.now();
+    save();
+    S.addBlockOpen = false;
+    renderEditor();
+  });
+
+  syncPreview();
+
   /* upload img */
   document.getElementById('btn-upload-img')?.addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+  document.getElementById('btn-upload-math')?.addEventListener('click', () => {
     document.getElementById('file-input').click();
   });
 }
@@ -570,7 +721,7 @@ async function handleImage(file) {
   if (!note) return;
 
   // show loading block
-  note.blocks.push({ type: 'text', content: '⏳ Mengekstrak teks dari gambar...' });
+  note.blocks.push({ type: 'text', content: '⏳ Menganalisis gambar...' });
   const loadingIdx = note.blocks.length - 1;
   note.updatedAt = Date.now();
   renderEditor();
@@ -587,11 +738,25 @@ async function handleImage(file) {
       body: JSON.stringify({ base64, mimeType: file.type })
     });
     const data = await res.json();
-    note.blocks[loadingIdx] = { type: 'ai-extract', content: data.text || '(tidak ada teks)' };
-    S.chat.messages.push({ role: 'ai', text: '✅ Teks berhasil diekstrak dan ditambahkan ke catatan.' });
+    const rawText = data.text || '(tidak ada konten)';
+    const ocrType = data.type || 'text'; // 'geometry' | 'math' | 'text'
+
+    if (ocrType === 'geometry' || ocrType === 'math') {
+      // Strip the [GEOMETRI] / [SOAL] header tag
+      const cleanText = rawText.replace(/^\[(GEOMETRI|SOAL)\]\s*/i, '').trim();
+      note.blocks[loadingIdx] = {
+        type: 'problem-solver',
+        subtype: ocrType,
+        content: cleanText
+      };
+      S.chat.messages.push({ role: 'ai', text: `✅ ${ocrType === 'geometry' ? '📐 Bangun geometri terdeteksi!' : '🧮 Soal matematika terdeteksi!'} Penyelesaian sudah ditambahkan ke catatan.` });
+    } else {
+      note.blocks[loadingIdx] = { type: 'ai-extract', content: rawText };
+      S.chat.messages.push({ role: 'ai', text: '✅ Teks berhasil diekstrak dan ditambahkan ke catatan.' });
+    }
   } catch {
     note.blocks.splice(loadingIdx, 1);
-    S.chat.messages.push({ role: 'ai', text: '❌ Gagal mengekstrak teks dari gambar.' });
+    S.chat.messages.push({ role: 'ai', text: '❌ Gagal menganalisis gambar.' });
   }
   note.updatedAt = Date.now();
   save();
