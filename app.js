@@ -1,9 +1,19 @@
 /* ── StudyAI — app.js ──────────────────────────────── */
 
 /* ── CONSTANTS ── */
-const LS_NOTES   = 'studyai_notes_v3';
-const LS_ACTIVE  = 'studyai_active_v3';
-const LS_TAGS    = 'studyai_tags_v3';
+const LS_NOTES    = 'studyai_notes_v3';
+const LS_ACTIVE   = 'studyai_active_v3';
+const LS_TAGS     = 'studyai_tags_v3';
+const LS_SETTINGS = 'studyai_settings_v1';
+
+const DEFAULT_SETTINGS = {
+  accentColor: '#7c3aed',
+  accentHover: '#6d28d9',
+  bgColor:     '#020617',
+  surfaceColor:'#0f172a',
+  fontSize:    100,
+  ttsLang:     'id-ID',
+};
 
 const FONTS = [
   { value: 'outfit',        label: 'Outfit (Default)' },
@@ -54,19 +64,24 @@ const S = {
   notes:    JSON.parse(localStorage.getItem(LS_NOTES)  || 'null') || DEFAULT_NOTES,
   tags:     JSON.parse(localStorage.getItem(LS_TAGS)   || 'null') || DEFAULT_TAGS,
   activeId: localStorage.getItem(LS_ACTIVE) || '1',
+  settings: JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || { ...DEFAULT_SETTINGS },
   search:   '',
   addBlockOpen: false,
   chat: { messages: [{ role: 'ai', text: 'Halo! Saya siap bantu belajar. Tanya apapun atau upload gambar catatan untuk diekstrak.' }], loading: false, input: '' },
   recording: { active: false, transcript: '', finalText: '' },
   waveform: [3,5,8,12,9,6,14,10,7,11,8,5],
+  serverOnline: true,
+  ttsPlaying: false,
+  ttsUtterance: null,
 };
 
 /* ── HELPERS ── */
 function uid()   { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 function save()  {
-  localStorage.setItem(LS_NOTES,  JSON.stringify(S.notes));
-  localStorage.setItem(LS_ACTIVE, S.activeId);
-  localStorage.setItem(LS_TAGS,   JSON.stringify(S.tags));
+  localStorage.setItem(LS_NOTES,    JSON.stringify(S.notes));
+  localStorage.setItem(LS_ACTIVE,   S.activeId);
+  localStorage.setItem(LS_TAGS,     JSON.stringify(S.tags));
+  localStorage.setItem(LS_SETTINGS, JSON.stringify(S.settings));
 }
 function timeAgo(ts) {
   const d = (Date.now() - ts) / 1000;
@@ -94,6 +109,347 @@ function escHtml(s) {
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+/* ── THEME ── */
+function applyTheme(settings) {
+  const r = document.documentElement.style;
+  r.setProperty('--accent',       settings.accentColor  || '#7c3aed');
+  r.setProperty('--accent-hover', settings.accentHover  || '#6d28d9');
+  r.setProperty('--bg-main',      settings.bgColor      || '#020617');
+  r.setProperty('--bg-surface',   settings.surfaceColor || '#0f172a');
+  const fs = (settings.fontSize || 100);
+  document.documentElement.style.fontSize = fs + '%';
+}
+
+/* ── SERVER HEALTH ── */
+async function checkServerHealth() {
+  const dot  = document.getElementById('server-dot');
+  const lbl  = document.getElementById('server-lbl');
+  try {
+    const res = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
+    S.serverOnline = res.ok;
+  } catch {
+    S.serverOnline = false;
+  }
+  if (dot) dot.className = 'server-dot ' + (S.serverOnline ? 'online' : 'offline');
+  if (lbl) lbl.textContent = S.serverOnline ? 'Server OK' : 'Offline';
+}
+
+/* ── MIND MAP SVG ── */
+function renderMindMapSVG(data) {
+  const branches = data.branches || [];
+  const W = 560, H = Math.max(260, branches.length * 70 + 60);
+  const cx = W / 2, cy = H / 2;
+  const R_center = 42, R_branch = 30, R_leaf = 22;
+
+  let paths = '', nodes = '';
+
+  branches.forEach((branch, bi) => {
+    const angle = (2 * Math.PI / branches.length) * bi - Math.PI / 2;
+    const bx = cx + Math.cos(angle) * 150;
+    const by = cy + Math.sin(angle) * 100;
+
+    // center → branch line
+    paths += `<path d="M${cx},${cy} Q${(cx+bx)/2},${(cy+by)/2+20} ${bx},${by}"
+      stroke="var(--accent,#7c3aed)" stroke-width="1.5" fill="none" opacity="0.5"/>`;
+
+    // branch node
+    const bl = escHtml(branch.label || '');
+    const blWrap = bl.length > 12 ? bl.slice(0,12)+'…' : bl;
+    nodes += `<ellipse cx="${bx}" cy="${by}" rx="${R_branch+blWrap.length*1.5}" ry="${R_branch}"
+      fill="rgba(124,58,237,0.15)" stroke="var(--accent,#7c3aed)" stroke-width="1.2"/>
+      <text x="${bx}" y="${by}" text-anchor="middle" dominant-baseline="middle"
+        font-size="11" fill="#c4b5fd" font-weight="600">${blWrap}</text>`;
+
+    // children
+    const children = branch.children || [];
+    children.forEach((leaf, li) => {
+      const leafAngle = angle + ((li - (children.length - 1) / 2) * 0.45);
+      const lx = bx + Math.cos(leafAngle) * 110;
+      const ly = by + Math.sin(leafAngle) * 65;
+      paths += `<line x1="${bx}" y1="${by}" x2="${lx}" y2="${ly}"
+        stroke="#475569" stroke-width="1" stroke-dasharray="3,3"/>`;
+      const ll = escHtml(leaf || '');
+      const llWrap = ll.length > 10 ? ll.slice(0,10)+'…' : ll;
+      nodes += `<ellipse cx="${lx}" cy="${ly}" rx="${R_leaf+llWrap.length}" ry="${R_leaf}"
+        fill="rgba(30,41,59,0.7)" stroke="rgba(148,163,184,0.25)" stroke-width="1"/>
+        <text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle"
+          font-size="9.5" fill="#94a3b8">${llWrap}</text>`;
+    });
+  });
+
+  // center node
+  const centerLabel = escHtml(data.center || '');
+  nodes += `<circle cx="${cx}" cy="${cy}" r="${R_center}"
+    fill="var(--accent,#7c3aed)" opacity="0.9"/>
+    <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle"
+      font-size="12" font-weight="700" fill="#fff">${centerLabel.length>14?centerLabel.slice(0,14)+'…':centerLabel}</text>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-height:300px;overflow:visible"
+    xmlns="http://www.w3.org/2000/svg">${paths}${nodes}</svg>`;
+}
+
+/* ── TTS ── */
+let ttsAudio = null;
+function speakNote() {
+  const note = activeNote();
+  if (!note) return;
+  const text = noteToText(note);
+  if (!text.trim()) return;
+
+  if (S.ttsPlaying) { stopSpeaking(); return; }
+
+  // Try backend Gemini TTS first
+  _speakViaBackend(text).catch(() => _speakViaBrowser(text));
+}
+
+async function _speakViaBackend(text) {
+  const res = await fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text.slice(0, 4000), lang: S.settings.ttsLang || 'id-ID' })
+  });
+  if (!res.ok) throw new Error('TTS backend failed');
+  const data = await res.json();
+  if (!data.audio) throw new Error('No audio data');
+
+  // data.audio is base64 PCM or MP3
+  const binary = atob(data.audio);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: data.mimeType || 'audio/wav' });
+  const url  = URL.createObjectURL(blob);
+  ttsAudio   = new Audio(url);
+  S.ttsPlaying = true;
+  updateTTSBtn();
+  ttsAudio.play();
+  ttsAudio.onended = () => { S.ttsPlaying = false; updateTTSBtn(); URL.revokeObjectURL(url); };
+}
+
+function _speakViaBrowser(text) {
+  if (!window.speechSynthesis) { alert('Browser tidak mendukung TTS.'); return; }
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = S.settings.ttsLang || 'id-ID';
+  utt.rate = 0.95;
+  S.ttsUtterance = utt;
+  S.ttsPlaying = true;
+  updateTTSBtn();
+  utt.onend = () => { S.ttsPlaying = false; updateTTSBtn(); };
+  window.speechSynthesis.speak(utt);
+}
+
+function stopSpeaking() {
+  if (ttsAudio) { ttsAudio.pause(); ttsAudio = null; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  S.ttsPlaying = false;
+  updateTTSBtn();
+}
+
+function updateTTSBtn() {
+  const btn = document.getElementById('btn-tts');
+  if (!btn) return;
+  btn.classList.toggle('active', S.ttsPlaying);
+  btn.title = S.ttsPlaying ? 'Hentikan pembacaan' : 'Baca catatan';
+  btn.querySelector('.tts-lbl').textContent = S.ttsPlaying ? 'Hentikan' : 'Baca';
+}
+
+/* ── APPLY AI TO NOTE ── */
+function applyAIToNote(msgIdx) {
+  const msg = S.chat.messages[msgIdx];
+  if (!msg || msg.role !== 'ai') return;
+  const note = activeNote();
+  if (!note) return;
+  const text = msg.text.replace(/^(rangkuman|ringkasan|summary)[:\s]*/i, '').trim();
+  note.blocks.push({ type: 'text', content: text });
+  note.updatedAt = Date.now();
+  save();
+  renderEditor();
+  // toast
+  const toast = document.createElement('div');
+  toast.className = 'apply-toast';
+  toast.textContent = '✅ Ditambahkan ke catatan';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2200);
+}
+window.applyAIToNote = applyAIToNote;
+
+/* ── OPEN MIND MAP ── */
+async function openMindMap() {
+  const note = activeNote();
+  if (!note) return;
+  const content = noteToText(note);
+  if (!content.trim()) { alert('Catatan masih kosong.'); return; }
+
+  showModal(`
+    <div class="modal-header">
+      <div class="modal-icon">🗺️</div>
+      <div><div class="modal-title">Peta Konsep</div><div class="modal-sub">Membuat dari catatan aktif...</div></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="quiz-loading"><div class="spinner"></div>
+        <p style="font-size:13px;color:#64748b">AI sedang membuat peta konsep...</p></div>
+    </div>`);
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `Buat peta konsep (mind map) dari catatan berikut dalam format JSON. 
+Hanya balas JSON, tanpa teks lain, tanpa markdown fence.
+Format: {"center":"TopikUtama","branches":[{"label":"Cabang1","children":["Daun1","Daun2"]},{"label":"Cabang2","children":["Daun3"]}]}
+Maksimal 6 cabang, masing-masing 3 daun. Bahasa Indonesia.
+
+Catatan:
+${content.slice(0, 2000)}`,
+        noteContext: ''
+      })
+    });
+    const data = await res.json();
+    let raw = (data.text || '').trim();
+    // Strip markdown fences
+    raw = raw.replace(/```json|```/g, '').trim();
+    const mapData = JSON.parse(raw);
+
+    showModal(`
+      <div class="modal-header">
+        <div class="modal-icon">🗺️</div>
+        <div><div class="modal-title">Peta Konsep</div><div class="modal-sub">${escHtml(mapData.center)}</div></div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="mindmap-preview">${renderMindMapSVG(mapData)}</div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn-outline" style="flex:1" onclick="closeModal()">Tutup</button>
+          <button class="btn-purple" style="flex:2" onclick="insertMindMapBlock(${escHtml(JSON.stringify(mapData))})">
+            Tambahkan ke Catatan
+          </button>
+        </div>
+      </div>`);
+
+    window.insertMindMapBlock = function(mapDataJson) {
+      const note = activeNote();
+      if (!note) return;
+      note.blocks.push({ type: 'mindmap', title: mapDataJson.center, mapData: mapDataJson });
+      note.updatedAt = Date.now();
+      save();
+      renderEditor();
+      closeModal();
+    };
+  } catch (e) {
+    showModal(`<div class="modal-header"><div class="modal-icon">⚠️</div>
+      <div><div class="modal-title">Gagal</div></div>
+      <button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body"><p style="color:#f87171;font-size:13px">Gagal membuat peta konsep: ${e.message}</p>
+      <br><button class="btn-purple" onclick="closeModal()">Tutup</button></div>`);
+  }
+}
+window.openMindMap = openMindMap;
+
+/* ── SETTINGS MODAL ── */
+function openSettings() {
+  const s = S.settings;
+  showModal(`
+    <div class="modal-header">
+      <div class="modal-icon">⚙️</div>
+      <div><div class="modal-title">Pengaturan</div><div class="modal-sub">Kustomisasi tampilan secara langsung</div></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body settings-body">
+      <div class="setting-row">
+        <label class="setting-label">Warna Aksen</label>
+        <div class="setting-color-row">
+          <input type="color" id="set-accent" value="${s.accentColor}" class="color-picker"/>
+          <div class="color-presets">
+            ${['#7c3aed','#2563eb','#0891b2','#059669','#d97706','#dc2626','#db2777'].map(c =>
+              `<button class="color-preset" style="background:${c}" data-color="${c}" title="${c}"></button>`
+            ).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Warna Background</label>
+        <div class="setting-color-row">
+          <input type="color" id="set-bg" value="${s.bgColor}" class="color-picker"/>
+          <div class="color-presets">
+            ${['#020617','#030712','#0f172a','#111827','#1a1a2e','#0d0d0d'].map(c =>
+              `<button class="color-preset" style="background:${c}" data-bg="${c}" title="${c}"></button>`
+            ).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Ukuran Teks — <span id="set-fs-lbl">${s.fontSize}%</span></label>
+        <input type="range" id="set-fontsize" min="80" max="130" step="5" value="${s.fontSize}" class="setting-range"/>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Bahasa TTS</label>
+        <select id="set-tts-lang" class="tbl-select" style="width:100%">
+          ${[['id-ID','Indonesia'],['en-US','English (US)'],['en-GB','English (UK)'],['ja-JP','日本語'],['ar-SA','عربي']].map(([v,l]) =>
+            `<option value="${v}" ${s.ttsLang===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Status Server</label>
+        <div class="server-status-row">
+          <div id="server-dot" class="server-dot ${S.serverOnline?'online':'offline'}"></div>
+          <span id="server-lbl" style="font-size:12px;color:#94a3b8">${S.serverOnline?'Server OK':'Offline — mode fallback aktif'}</span>
+          <button class="btn-outline" style="margin-left:auto;padding:4px 10px;font-size:11px" onclick="checkServerHealth()">Cek Ulang</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn-outline" style="flex:1" onclick="resetTheme()">Reset Default</button>
+        <button class="btn-purple" style="flex:2" onclick="saveSettings()">Simpan & Tutup</button>
+      </div>
+    </div>`);
+
+  // Live preview
+  document.getElementById('set-accent')?.addEventListener('input', e => {
+    S.settings.accentColor = e.target.value;
+    S.settings.accentHover = e.target.value;
+    applyTheme(S.settings);
+  });
+  document.getElementById('set-bg')?.addEventListener('input', e => {
+    S.settings.bgColor = e.target.value;
+    applyTheme(S.settings);
+  });
+  document.getElementById('set-fontsize')?.addEventListener('input', e => {
+    S.settings.fontSize = parseInt(e.target.value);
+    document.getElementById('set-fs-lbl').textContent = e.target.value + '%';
+    applyTheme(S.settings);
+  });
+  document.getElementById('set-tts-lang')?.addEventListener('change', e => {
+    S.settings.ttsLang = e.target.value;
+  });
+  document.querySelectorAll('.color-preset[data-color]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.settings.accentColor = btn.dataset.color;
+      S.settings.accentHover = btn.dataset.color;
+      document.getElementById('set-accent').value = btn.dataset.color;
+      applyTheme(S.settings);
+    });
+  });
+  document.querySelectorAll('.color-preset[data-bg]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.settings.bgColor = btn.dataset.bg;
+      document.getElementById('set-bg').value = btn.dataset.bg;
+      applyTheme(S.settings);
+    });
+  });
+}
+window.openSettings = openSettings;
+window.saveSettings = function() {
+  save();
+  closeModal();
+};
+window.resetTheme = function() {
+  S.settings = { ...DEFAULT_SETTINGS };
+  save();
+  applyTheme(S.settings);
+  openSettings();
+};
 
 /* ── RENDER SIDEBAR ── */
 function renderSidebar() {
@@ -256,10 +612,33 @@ function renderBlock(block, idx) {
         <div class="ai-extract-label">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l2 2"/></svg>
           Diekstrak dari Gambar
+          <button class="ai-extract-edit-btn" data-extract-copy="${idx}" title="Salin ke blok teks">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Salin ke blok
+          </button>
         </div>
-        <div class="ai-extract-text">${escHtml(block.content)}</div>
+        <div class="ai-extract-text" contenteditable="true"
+          data-block="${idx}" data-field="content"
+          spellcheck="false">${escHtml(block.content)}</div>
       </div>
     </div>`;
+
+  if (block.type === 'mindmap') {
+    const mapData = block.mapData || { center: block.title || 'Topik', branches: [] };
+    return `
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="block-mindmap">
+        <div class="mindmap-label">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="2" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="22" y2="12"/></svg>
+          Peta Konsep — ${escHtml(mapData.center)}
+        </div>
+        <div class="mindmap-canvas-wrap">
+          ${renderMindMapSVG(mapData)}
+        </div>
+      </div>
+    </div>`;
+  }
 
   if (block.type === 'problem-solver') {
     const isGeometry = block.subtype === 'geometry';
@@ -320,6 +699,7 @@ function renderAddBlockMenu() {
       <button class="strip-item" data-add="callout-warning" title="Peringatan"><span class="strip-icon strip-icon-warn">WRN</span><span class="strip-lbl">Warn</span></button>
       <button class="strip-item" data-add="flashcard" title="Flashcard"><span class="strip-icon">Q/A</span><span class="strip-lbl">Flash</span></button>
       <button class="strip-item" data-add="table-picker" title="Tabel"><span class="strip-icon">▦</span><span class="strip-lbl">Tabel</span></button>
+      <button class="strip-item" data-add="mindmap-ai" title="Peta Konsep"><span class="strip-icon">🗺️</span><span class="strip-lbl">Peta</span></button>
     </div>
     <div id="table-tpl-wrap" class="hidden">
       <div class="table-builder">
@@ -378,6 +758,12 @@ function renderEditor() {
         <select class="font-select" id="font-select">
           ${FONTS.map(f => `<option value="${f.value}" ${note.font===f.value?'selected':''}>${f.label}</option>`).join('')}
         </select>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          <button id="btn-tts" class="tts-btn" title="Baca catatan">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <span class="tts-lbl">Baca</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -520,6 +906,12 @@ function bindEditorEvents() {
         document.getElementById('table-tpl-wrap')?.classList.toggle('hidden');
         return;
       }
+      if (type === 'mindmap-ai') {
+        S.addBlockOpen = false;
+        document.getElementById('add-block-panel')?.classList.add('hidden');
+        openMindMap();
+        return;
+      }
       addBlock(type);
       S.addBlockOpen = false;
       document.getElementById('add-block-panel')?.classList.add('hidden');
@@ -592,6 +984,23 @@ function bindEditorEvents() {
   document.getElementById('btn-upload-math')?.addEventListener('click', () => {
     document.getElementById('file-input').click();
   });
+
+  /* ai-extract copy to plain text block */
+  document.querySelectorAll('[data-extract-copy]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.extractCopy);
+      const b = note.blocks[idx];
+      if (!b) return;
+      note.blocks.push({ type: 'text', content: b.content });
+      note.updatedAt = Date.now();
+      save();
+      renderEditor();
+    });
+  });
+
+  /* TTS button */
+  document.getElementById('btn-tts')?.addEventListener('click', speakNote);
 }
 
 function autoResizeTextarea(el) {
@@ -674,10 +1083,18 @@ function closeSidebar() { document.getElementById('sidebar').classList.remove('o
 function renderChatMessages(containerId = 'chat-messages') {
   const el = document.getElementById(containerId);
   if (!el) return;
-  el.innerHTML = S.chat.messages.map(m => `
+  el.innerHTML = S.chat.messages.map((m, i) => {
+    const isApplicable = m.role === 'ai' && i > 0 &&
+      (m.text.length > 60) && !m.text.startsWith('❌') && !m.text.startsWith('✅');
+    return `
     <div class="chat-msg ${m.role}">
       <div class="chat-bubble ${m.role}">${escHtml(m.text)}</div>
-    </div>`).join('');
+      ${isApplicable ? `<button class="chat-apply-btn" onclick="applyAIToNote(${i})" title="Tambah ke catatan">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Apply ke catatan
+      </button>` : ''}
+    </div>`;
+  }).join('');
   if (S.chat.loading) {
     el.innerHTML += `<div class="chat-msg ai"><div class="chat-bubble ai"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
   }
@@ -1120,6 +1537,8 @@ window.closeMobileChat = function() {
 
 /* ── INIT ── */
 document.addEventListener('DOMContentLoaded', () => {
+  applyTheme(S.settings);
+  checkServerHealth();
   initSpeech();
   renderSidebar();
   renderEditor();
@@ -1133,6 +1552,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* New note */
   document.getElementById('btn-new-note')?.addEventListener('click', newNote);
+
+  /* Settings */
+  document.getElementById('btn-settings')?.addEventListener('click', openSettings);
 
   /* Sidebar toggle (mobile) */
   document.getElementById('btn-menu')?.addEventListener('click', openSidebar);
