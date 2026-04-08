@@ -1,149 +1,147 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StudyAI — Catatan Cerdas</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@0,500;0,700;1,400&family=JetBrains+Mono:wght@400;500&family=Nunito:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="style.css"/>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    h1 { margin: 0 0 16px; font-size: 1.4rem; }
+    .upload-box {
+      border: 2px dashed var(--border);
+      padding: 30px;
+      text-align: center;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-box:hover { border-color: var(--primary); background: #f0f4ff; }
+    #preview { max-width: 100%; margin: 12px 0; border-radius: 8px; display: none; }
+    
+    /* 🔑 KUNCI OUTPUT RAPI */
+    #ocr-result {
+      margin-top: 16px;
+      padding: 16px;
+      background: #f1f5f9;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;      /* ✅ Menghormati Enter/\n dari AI */
+      line-height: 1.6;
+      font-family: inherit;
+      display: none;
+    }
+    #ocr-result.loading { color: #64748b; font-style: italic; }
+    
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    button:disabled { background: #94a3b8; cursor: not-allowed; }
+  </style>
 </head>
 <body>
-
-<!-- APP ROOT -->
-<div id="app">
-
-  <!-- HEADER -->
-  <header id="header">
-    <button id="btn-menu" class="icon-btn" title="Menu">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
-    <div class="logo">
-      <div class="logo-icon">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.44-4.54z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.44-4.54z"/></svg>
-      </div>
-      <span class="logo-text">StudyAI</span>
+  <div class="container">
+    <h1>📷 StudyAI — Scan Gambar</h1>
+    
+    <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+      Klik untuk pilih foto / drag & drop
+      <input type="file" id="fileInput" accept="image/*" style="display: none;">
     </div>
-    <div class="search-wrap">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="search-input" type="text" placeholder="Cari catatan..." autocomplete="off"/>
-    </div>
-    <div class="header-actions">
-      <span id="saved-badge" class="saved-badge hidden">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
-        Tersimpan
-      </span>
-      <button id="btn-quiz-header" class="btn-primary" title="Buat Kuis dari Catatan Ini">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        Buat Kuis
-      </button>
-      <div class="avatar">Z</div>
-    </div>
-  </header>
-
-  <!-- MAIN LAYOUT -->
-  <div id="layout">
-
-    <!-- SIDEBAR OVERLAY (mobile) -->
-    <div id="sidebar-overlay" class="overlay hidden"></div>
-
-    <!-- SIDEBAR -->
-    <aside id="sidebar">
-      <div class="sidebar-top">
-        <button id="btn-new-note" class="btn-new-note">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-          Catatan Baru
-        </button>
-      </div>
-      <div id="note-list" class="note-list"></div>
-      <div class="sidebar-stats" id="sidebar-stats"></div>
-    </aside>
-
-    <!-- EDITOR -->
-    <main id="editor-area">
-      <div id="editor-scroll">
-        <div id="editor-inner">
-          <!-- Injected by JS -->
-        </div>
-      </div>
-
-      <!-- Dictation Bar -->
-      <div id="dictation-bar">
-        <div id="dictation-inner">
-          <button id="btn-mic" class="mic-btn" title="Rekam suara">
-            <svg id="mic-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          </button>
-          <div id="dictation-content">
-            <span id="dictation-hint">Klik mikrofon untuk dikte catatan...</span>
-            <div id="waveform-wrap" class="hidden">
-              <div id="waveform"></div>
-              <div class="rec-badge"><div class="rec-dot"></div><span>REC</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- AI CHAT SIDEBAR (desktop) -->
-    <aside id="chat-sidebar">
-      <div class="chat-header">
-        <div class="chat-avatar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="19" cy="5" r="3" fill="currentColor"/></svg>
-        </div>
-        <div>
-          <p class="chat-title">AI Asisten</p>
-          <div class="chat-status"><div class="status-dot"></div><span>Online</span></div>
-        </div>
-      </div>
-      <div id="chat-messages" class="chat-messages"></div>
-      <div class="chat-quick" id="chat-quick">
-        <button class="quick-btn" data-q="Rangkum catatan ini">Rangkum</button>
-        <button class="quick-btn" data-q="Buat soal latihan dari catatan ini">Soal latihan</button>
-        <button class="quick-btn" data-q="Jelaskan topik ini lebih detail">Jelaskan lebih</button>
-      </div>
-      <div class="chat-input-wrap">
-        <button id="btn-ocr-chat" class="icon-btn-sm" title="Upload gambar OCR">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-        </button>
-        <div class="chat-input-box">
-          <input id="chat-input" type="text" placeholder="Tanya sesuatu..." autocomplete="off"/>
-          <button id="btn-send" title="Kirim">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
-          </button>
-        </div>
-      </div>
-    </aside>
+    <img id="preview" alt="Preview Gambar">
+    <button id="scanBtn" disabled onclick="prosesGambar()">🔍 Ekstrak Teks</button>
+    
+    <div id="ocr-result"></div>
   </div>
 
-  <!-- MOBILE BOTTOM NAV -->
-  <nav id="mobile-nav">
-    <button class="nav-btn" id="nav-catatan">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-      <span>Catatan</span>
-    </button>
-    <button class="nav-btn" id="nav-kuis">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      <span>Kuis</span>
-    </button>
-    <button class="nav-btn" id="nav-scan">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-      <span>Scan</span>
-    </button>
-    <button class="nav-btn" id="nav-chat">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <span>AI Chat</span>
-    </button>
-  </nav>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+    const scanBtn = document.getElementById('scanBtn');
+    const resultDiv = document.getElementById('ocr-result');
+    let selectedFile = null;
 
-</div><!-- #app -->
+    fileInput.addEventListener('change', (e) => {
+      selectedFile = e.target.files[0];
+      if (selectedFile) {
+        preview.src = URL.createObjectURL(selectedFile);
+        preview.style.display = 'block';
+        scanBtn.disabled = false;
+        resultDiv.style.display = 'none';
+        resultDiv.textContent = '';
+      }
+    });
 
-<!-- MODALS (injected by JS) -->
-<div id="modal-root"></div>
+    async function prosesGambar() {
+      if (!selectedFile) return;
+      
+      scanBtn.disabled = true;
+      scanBtn.textContent = '⏳ Sedang menganalisis...';
+      resultDiv.style.display = 'block';
+      resultDiv.className = 'loading';
+      resultDiv.textContent = 'Mengirim gambar ke AI...';
 
-<!-- HIDDEN FILE INPUT -->
-<input type="file" id="file-input" accept="image/*" class="hidden"/>
+      try {
+        const base64 = await fileToBase64(selectedFile);
+        const mimeType = selectedFile.type;
 
-<script src="app.js"></script>
+        const res = await fetch('/api/ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64, mimeType })
+        });
+
+        if (!res.ok) throw new Error(`Gagal: ${res.status} ${res.statusText}`);
+        const data = await res.json();
+        
+        resultDiv.className = '';
+        resultDiv.textContent = data.text; // ✅ Langsung tampil rapi berkat CSS pre-wrap
+      } catch (err) {
+        resultDiv.className = '';
+        resultDiv.textContent = '❌ Gagal: ' + err.message;
+      } finally {
+        scanBtn.disabled = false;
+        scanBtn.textContent = '🔍 Ekstrak Teks';
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result.split(',')[1]); // Hapus prefix data:...
+        reader.onerror = reject;
+      });
+    }
+  </script>
 </body>
 </html>
