@@ -32,19 +32,6 @@ Luas = <hasil> <satuan²>, Keliling = <hasil> <satuan>
 == JIKA ada SOAL MATEMATIKA / FISIKA / KIMIA dengan angka dan pertanyaan: ==
 Balas PERSIS dengan format ini:
 
-[SOAL]
-Diketahui:
-- <data 1>
-- <data 2>
-Ditanya: <pertanyaan>
-Penyelesaian:
-<langkah 1>
-<langkah 2>
-Jawaban: <hasil akhir>
-
-== JIKA HANYA berisi TEKS BIASA atau TULISAN TANGAN: ==
-Ekstrak semua teks secara lengkap dan akurat. Jika ada tabel, gunakan | sebagai pemisah kolom.
-
 Jangan tambahkan penjelasan di luar format yang diminta.`;
 
   try {
