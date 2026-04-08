@@ -422,10 +422,14 @@ a { color: inherit; text-decoration: none; }
   font-family: 'Lora', serif;
   font-size: 19px;
   font-weight: 700;
-  color: #fff;
+  color: #e9d5ff;
+  background: linear-gradient(90deg, #d8b4fe, #a5f3fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin: 18px 0 8px;
   padding: 0 8px 6px;
-  border-bottom: 1px solid rgba(51,65,85,0.4);
+  border-bottom: 1px solid rgba(167,139,250,0.2);
   outline: none;
   min-height: 30px;
 }
@@ -434,12 +438,13 @@ a { color: inherit; text-decoration: none; }
 /* Block: text */
 .block-text {
   font-size: 13.5px;
-  line-height: 1.75;
-  color: #94a3b8;
+  line-height: 1.85;
+  color: #dde6f0;
   padding: 4px 8px;
   outline: none;
   min-height: 28px;
   border-radius: 6px;
+  letter-spacing: 0.01em;
 }
 .block-text:empty::before { content: attr(data-placeholder); color: #334155; pointer-events: none; }
 .block-text:focus { background: rgba(15,23,42,0.5); }
@@ -471,23 +476,25 @@ a { color: inherit; text-decoration: none; }
 }
 .block-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .block-table th {
-  background: rgba(124,58,237,0.15);
-  color: #a78bfa;
-  font-weight: 600;
+  background: rgba(124,58,237,0.18);
+  color: #c4b5fd;
+  font-weight: 700;
   padding: 9px 12px;
   text-align: left;
-  border-bottom: 1px solid rgba(51,65,85,0.4);
+  border-bottom: 1px solid rgba(124,58,237,0.25);
   outline: none;
+  letter-spacing: 0.02em;
+  font-size: 11.5px;
 }
 .block-table td {
   padding: 8px 12px;
-  color: #94a3b8;
+  color: #c9d8ea;
   border-bottom: 1px solid rgba(30,41,59,0.5);
   outline: none;
 }
 .block-table tr:last-child td { border-bottom: none; }
-.block-table tr:nth-child(even) td { background: rgba(15,23,42,0.3); }
-.block-table th:focus, .block-table td:focus { background: rgba(124,58,237,0.08); }
+.block-table tr:nth-child(even) td { background: rgba(124,58,237,0.04); color: #b8cde0; }
+.block-table th:focus, .block-table td:focus { background: rgba(124,58,237,0.1); }
 
 /* Block: callout */
 .block-callout {
@@ -506,7 +513,10 @@ a { color: inherit; text-decoration: none; }
 .block-callout.tip .callout-lbl    { color: #fbbf24; }
 .block-callout.info .callout-lbl   { color: #60a5fa; }
 .block-callout.warning .callout-lbl{ color: #f87171; }
-.callout-text { font-size: 13px; color: #94a3b8; outline: none; min-width: 80px; line-height: 1.6; }
+.callout-text { font-size: 13px; outline: none; min-width: 80px; line-height: 1.65; }
+.block-callout.tip     .callout-text { color: #fde68a; }
+.block-callout.info    .callout-text { color: #bae6fd; }
+.block-callout.warning .callout-text { color: #fca5a5; }
 .callout-text:empty::before { content: "Tulis catatan..."; color: #334155; pointer-events: none; }
 
 /* Block: flashcard */
@@ -540,7 +550,7 @@ a { color: inherit; text-decoration: none; }
 .fc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
 .flashcard-face.front .fc-label { color: #a78bfa; }
 .flashcard-face.back  .fc-label { color: #34d399; }
-.fc-text { font-size: 13px; color: #e2e8f0; line-height: 1.55; margin-top: 6px; }
+.fc-text { font-size: 13px; color: #f0f4ff; line-height: 1.6; margin-top: 6px; }
 .fc-hint { font-size: 10px; color: #334155; margin-top: 6px; }
 
 /* Block: ai-extract */
@@ -584,9 +594,7 @@ a { color: inherit; text-decoration: none; }
 .ai-extract-text {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  color: #94a3b8;
-  white-space: pre-wrap;
-  word-break: break-word;
+  color: #c8daf0;
   overflow-wrap: break-word;
   line-height: 1.65;
   outline: none;
@@ -1255,7 +1263,7 @@ a { color: inherit; text-decoration: none; }
   padding: 7px 14px; border-bottom: 1px solid rgba(16,185,129,.15);
   display: flex; align-items: center; gap: 6px;
 }
-.solver-body { padding: 12px 14px; font-size: 13px; line-height: 1.7; color: #cbd5e1; }
+.solver-body { padding: 12px 14px; font-size: 13px; line-height: 1.7; color: #d4e5f5; }
 .solver-section {
   font-weight: 700; color: #e2e8f0; margin-top: 10px; margin-bottom: 2px;
   font-size: 12px; letter-spacing: .2px;
