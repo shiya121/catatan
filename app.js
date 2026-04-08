@@ -7,12 +7,12 @@ const LS_TAGS     = 'studyai_tags_v3';
 const LS_SETTINGS = 'studyai_settings_v1';
 
 const DEFAULT_SETTINGS = {
-  accentColor:  '#7c3aed',
-  accentHover:  '#6d28d9',
-  bgColor:      '#020617',
-  surfaceColor: '#0f172a',
-  fontSize:     100,
-  ttsLang:      'id-ID',
+  accentColor: '#7c3aed',
+  accentHover: '#6d28d9',
+  bgColor:     '#020617',
+  surfaceColor:'#0f172a',
+  fontSize:    100,
+  ttsLang:     'id-ID',
 };
 
 const FONTS = [
@@ -27,7 +27,7 @@ const FONTS = [
 const DEFAULT_TAGS = ['Jaringan', 'Web', 'Matematika', 'Bahasa', 'IPA', 'TKJ', 'Umum'];
 
 const DEFAULT_NOTES = [
-  { 
+  {
     id: '1', title: 'OSI Layer — Jaringan Komputer', tag: 'Jaringan',
     starred: true, updatedAt: Date.now() - 7200000, font: 'outfit',
     blocks: [
@@ -53,7 +53,7 @@ const DEFAULT_NOTES = [
     blocks: [
       { type: 'heading', content: 'Struktur Dokumen HTML' },
       { type: 'text', content: 'HTML adalah bahasa markup standar untuk membangun halaman web.' },
-      { type: 'code', lang: 'html', content: '<!DOCTYPE html>\n<html>\n  <head>\n    <title>Judul</title>\n  </head>\n  <body>\n    <h1>Halo Dunia!</h1>\n  </body>\n</html>' },
+      { type: 'code', lang: 'html', content: '<!DOCTYPE html>\n<html lang="id">\n  <head>\n    <meta charset="UTF-8">\n    <title>Halaman Web</title>\n  </head>\n  <body>\n    <h1>Halo Dunia!</h1>\n  </body>\n</html>' },
       { type: 'callout', variant: 'info', content: 'DOCTYPE wajib di baris pertama agar browser render dalam mode standar.' },
     ]
   }
@@ -61,15 +61,15 @@ const DEFAULT_NOTES = [
 
 /* ── STATE ── */
 const S = {
-  notes:      JSON.parse(localStorage.getItem(LS_NOTES)  || 'null') || DEFAULT_NOTES,
-  tags:       JSON.parse(localStorage.getItem(LS_TAGS)   || 'null') || DEFAULT_TAGS,
-  activeId:   localStorage.getItem(LS_ACTIVE) || '1',
-  settings:   JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || { ...DEFAULT_SETTINGS },
-  search:     '',
+  notes:    JSON.parse(localStorage.getItem(LS_NOTES)  || 'null') || DEFAULT_NOTES,
+  tags:     JSON.parse(localStorage.getItem(LS_TAGS)   || 'null') || DEFAULT_TAGS,
+  activeId: localStorage.getItem(LS_ACTIVE) || '1',
+  settings: JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null') || { ...DEFAULT_SETTINGS },
+  search:   '',
   addBlockOpen: false,
-  chat:       { messages: [{ role: 'ai', text: 'Halo! Saya siap bantu belajar. Tanya apapun atau upload gambar catatan untuk diekstrak.' }], loading: false, input: '' },
-  recording:  { active: false, transcript: '', finalText: '' },
-  waveform:   [3,5,8,12,9,6,14,10,7,11,8,5],
+  chat: { messages: [{ role: 'ai', text: 'Halo! Saya siap bantu belajar. Tanya apapun atau upload gambar catatan untuk diekstrak.' }], loading: false, input: '' },
+  recording: { active: false, transcript: '', finalText: '' },
+  waveform: [3,5,8,12,9,6,14,10,7,11,8,5],
   serverOnline: true,
   ttsPlaying: false,
   ttsUtterance: null,
@@ -83,14 +83,14 @@ function save()  {
   localStorage.setItem(LS_TAGS,     JSON.stringify(S.tags));
   localStorage.setItem(LS_SETTINGS, JSON.stringify(S.settings));
 }
-function timeAgo(ts) { 
+function timeAgo(ts) {
   const d = (Date.now() - ts) / 1000;
   if (d < 60) return 'baru saja';
   if (d < 3600) return `${Math.floor(d/60)} mnt lalu`;
   if (d < 86400) return `${Math.floor(d/3600)} jam lalu`;
   return `${Math.floor(d/86400)} hr lalu`;
 }
-function activeNote() { return S.notes.find(n => n.id === S.activeId) || S.notes[0];  }
+function activeNote() { return S.notes.find(n => n.id === S.activeId) || S.notes[0]; }
 function noteToText(note) {
   if (!note) return '';
   return note.blocks.map(b => {
@@ -106,10 +106,8 @@ function noteToText(note) {
 }
 function escHtml(s) {
   return String(s||'')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 /* ── THEME ── */
@@ -125,8 +123,8 @@ function applyTheme(settings) {
 
 /* ── SERVER HEALTH ── */
 async function checkServerHealth() {
-  const dot = document.getElementById('server-dot');
-  const lbl = document.getElementById('server-lbl');
+  const dot  = document.getElementById('server-dot');
+  const lbl  = document.getElementById('server-lbl');
   try {
     const res = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
     S.serverOnline = res.ok;
@@ -151,27 +149,44 @@ function renderMindMapSVG(data) {
     const bx = cx + Math.cos(angle) * 150;
     const by = cy + Math.sin(angle) * 100;
 
-    paths += `<path d="M${cx},${cy} L${bx},${by}" stroke="rgba(124,58,237,.3)" stroke-width="2"/>`;
+    // center → branch line
+    paths += `<path d="M${cx},${cy} Q${(cx+bx)/2},${(cy+by)/2+20} ${bx},${by}"
+      stroke="var(--accent,#7c3aed)" stroke-width="1.5" fill="none" opacity="0.5"/>`;
+
+    // branch node
     const bl = escHtml(branch.label || '');
     const blWrap = bl.length > 12 ? bl.slice(0,12)+'…' : bl;
-    nodes += `<g transform="translate(${bx},${by})"><rect x="-${R_branch}" y="-${R_branch/1.5}" width="${R_branch*2}" height="${R_branch*1.5}" rx="6" fill="rgba(124,58,237,.15)" stroke="rgba(124,58,237,.4)"/><text y="4" text-anchor="middle" font-size="11" fill="#c4b5fd">${blWrap}</text></g>`;
+    nodes += `<ellipse cx="${bx}" cy="${by}" rx="${R_branch+blWrap.length*1.5}" ry="${R_branch}"
+      fill="rgba(124,58,237,0.15)" stroke="var(--accent,#7c3aed)" stroke-width="1.2"/>
+      <text x="${bx}" y="${by}" text-anchor="middle" dominant-baseline="middle"
+        font-size="11" fill="#c4b5fd" font-weight="600">${blWrap}</text>`;
 
+    // children
     const children = branch.children || [];
     children.forEach((leaf, li) => {
       const leafAngle = angle + ((li - (children.length - 1) / 2) * 0.45);
       const lx = bx + Math.cos(leafAngle) * 110;
       const ly = by + Math.sin(leafAngle) * 65;
-      paths += `<path d="M${bx},${by} L${lx},${ly}" stroke="rgba(99,102,241,.2)" stroke-width="1.5"/>`;
+      paths += `<line x1="${bx}" y1="${by}" x2="${lx}" y2="${ly}"
+        stroke="#475569" stroke-width="1" stroke-dasharray="3,3"/>`;
       const ll = escHtml(leaf || '');
       const llWrap = ll.length > 10 ? ll.slice(0,10)+'…' : ll;
-      nodes += `<g transform="translate(${lx},${ly})"><rect x="-${R_leaf}" y="-${R_leaf/1.5}" width="${R_leaf*2}" height="${R_leaf*1.5}" rx="4" fill="rgba(15,23,42,.6)" stroke="rgba(99,102,241,.3)"/><text y="4" text-anchor="middle" font-size="9" fill="#94a3b8">${llWrap}</text></g>`;
+      nodes += `<ellipse cx="${lx}" cy="${ly}" rx="${R_leaf+llWrap.length}" ry="${R_leaf}"
+        fill="rgba(30,41,59,0.7)" stroke="rgba(148,163,184,0.25)" stroke-width="1"/>
+        <text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle"
+          font-size="9.5" fill="#94a3b8">${llWrap}</text>`;
     });
   });
 
+  // center node
   const centerLabel = escHtml(data.center || '');
-  nodes += `<g transform="translate(${cx},${cy})"><circle r="${R_center}" fill="rgba(124,58,237,.15)" stroke="rgba(124,58,237,.5)"/><text y="5" text-anchor="middle" font-size="13" font-weight="700" fill="#e9d5ff">${centerLabel.length>14?centerLabel.slice(0,14)+'…':centerLabel}</text></g>`;
+  nodes += `<circle cx="${cx}" cy="${cy}" r="${R_center}"
+    fill="var(--accent,#7c3aed)" opacity="0.9"/>
+    <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle"
+      font-size="12" font-weight="700" fill="#fff">${centerLabel.length>14?centerLabel.slice(0,14)+'…':centerLabel}</text>`;
 
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">${paths}${nodes}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-height:300px;overflow:visible"
+    xmlns="http://www.w3.org/2000/svg">${paths}${nodes}</svg>`;
 }
 
 /* ── TTS ── */
@@ -183,6 +198,8 @@ function speakNote() {
   if (!text.trim()) return;
 
   if (S.ttsPlaying) { stopSpeaking(); return; }
+
+  // Try backend Gemini TTS first
   _speakViaBackend(text).catch(() => _speakViaBrowser(text));
 }
 
@@ -196,6 +213,7 @@ async function _speakViaBackend(text) {
   const data = await res.json();
   if (!data.audio) throw new Error('No audio data');
 
+  // data.audio is base64 PCM or MP3
   const binary = atob(data.audio);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -207,7 +225,7 @@ async function _speakViaBackend(text) {
   ttsAudio.play();
   ttsAudio.onended = () => { S.ttsPlaying = false; updateTTSBtn(); URL.revokeObjectURL(url); };
 }
- 
+
 function _speakViaBrowser(text) {
   if (!window.speechSynthesis) { alert('Browser tidak mendukung TTS.'); return; }
   window.speechSynthesis.cancel();
@@ -247,6 +265,7 @@ function applyAIToNote(msgIdx) {
   note.updatedAt = Date.now();
   save();
   renderEditor();
+  // toast
   const toast = document.createElement('div');
   toast.className = 'apply-toast';
   toast.textContent = '✅ Ditambahkan ke catatan';
@@ -263,38 +282,52 @@ async function openMindMap() {
   if (!content.trim()) { alert('Catatan masih kosong.'); return; }
 
   showModal(`
-    <div class="modal-box">
-      <div class="modal-header"><div class="modal-icon">🗺️</div><div><div class="modal-title">Peta Konsep</div><div class="modal-sub">Membuat dari catatan aktif... ✕</div></div><button class="modal-close" onclick="closeModal()">✕</button></div>
-      <div class="modal-body"><div class="quiz-loading"><div class="spinner"></div><p>AI sedang membuat peta konsep...</p></div></div>
+    <div class="modal-header">
+      <div class="modal-icon">🗺️</div>
+      <div><div class="modal-title">Peta Konsep</div><div class="modal-sub">Membuat dari catatan aktif...</div></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
-  `);
+    <div class="modal-body">
+      <div class="quiz-loading"><div class="spinner"></div>
+        <p style="font-size:13px;color:#64748b">AI sedang membuat peta konsep...</p></div>
+    </div>`);
 
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: `Buat peta konsep (mind map) dari catatan berikut dalam format JSON. Hanya balas JSON, tanpa teks lain, tanpa markdown fence.\nFormat: {"center":"TopikUtama","branches":[{"label":"Cabang1","children":["Daun1","Daun2"]},{"label":"Cabang2","children":["Daun3"]}]}\nMaksimal 6 cabang, masing-masing 3 daun. Bahasa Indonesia.\n\nCatatan:\n${content.slice(0, 2000)}`,
+        message: `Buat peta konsep (mind map) dari catatan berikut dalam format JSON. 
+Hanya balas JSON, tanpa teks lain, tanpa markdown fence.
+Format: {"center":"TopikUtama","branches":[{"label":"Cabang1","children":["Daun1","Daun2"]},{"label":"Cabang2","children":["Daun3"]}]}
+Maksimal 6 cabang, masing-masing 3 daun. Bahasa Indonesia.
+
+Catatan:
+${content.slice(0, 2000)}`,
         noteContext: ''
       })
     });
     const data = await res.json();
     let raw = (data.text || '').trim();
+    // Strip markdown fences
     raw = raw.replace(/```json|```/g, '').trim();
     const mapData = JSON.parse(raw);
 
     showModal(`
-      <div class="modal-box">
-        <div class="modal-header"><div class="modal-icon">🗺️</div><div><div class="modal-title">Peta Konsep</div><div class="modal-sub">${escHtml(mapData.center)}</div></div><button class="modal-close" onclick="closeModal()">✕</button></div>
-        <div class="modal-body">
-          ${renderMindMapSVG(mapData)}
-          <div style="display:flex;gap:8px;margin-top:14px">
-            <button class="btn-outline" onclick="closeModal()">Tutup</button>
-            <button class="btn-purple" onclick="insertMindMapBlock(${JSON.stringify(mapData).replace(/"/g, '&quot;')})">Tambahkan ke Catatan</button>
-          </div>
-        </div>
+      <div class="modal-header">
+        <div class="modal-icon">🗺️</div>
+        <div><div class="modal-title">Peta Konsep</div><div class="modal-sub">${escHtml(mapData.center)}</div></div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
-    `);
+      <div class="modal-body">
+        <div class="mindmap-preview">${renderMindMapSVG(mapData)}</div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn-outline" style="flex:1" onclick="closeModal()">Tutup</button>
+          <button class="btn-purple" style="flex:2" onclick="insertMindMapBlock(${escHtml(JSON.stringify(mapData))})">
+            Tambahkan ke Catatan
+          </button>
+        </div>
+      </div>`);
 
     window.insertMindMapBlock = function(mapDataJson) {
       const note = activeNote();
@@ -306,12 +339,11 @@ async function openMindMap() {
       closeModal();
     };
   } catch (e) {
-    showModal(`
-      <div class="modal-box">
-        <div class="modal-header"><div class="modal-icon" style="background:#ef4444">⚠️</div><div><div class="modal-title">Gagal</div><div class="modal-sub">Gagal membuat peta konsep: ${e.message} ✕</div></div></div>
-        <div class="modal-body"><button class="btn-outline" onclick="closeModal()">Tutup</button></div>
-      </div>
-    `);
+    showModal(`<div class="modal-header"><div class="modal-icon">⚠️</div>
+      <div><div class="modal-title">Gagal</div></div>
+      <button class="modal-close" onclick="closeModal()">✕</button></div>
+      <div class="modal-body"><p style="color:#f87171;font-size:13px">Gagal membuat peta konsep: ${e.message}</p>
+      <br><button class="btn-purple" onclick="closeModal()">Tutup</button></div>`);
   }
 }
 window.openMindMap = openMindMap;
@@ -320,19 +352,60 @@ window.openMindMap = openMindMap;
 function openSettings() {
   const s = S.settings;
   showModal(`
-    <div class="modal-box">
-      <div class="modal-header"><div class="modal-icon">⚙️</div><div><div class="modal-title">Pengaturan</div><div class="modal-sub">Kustomisasi tampilan secara langsung ✕</div></div><button class="modal-close" onclick="closeModal()">✕</button></div>
-      <div class="modal-body settings-body">
-        <div class="setting-row"><span class="setting-label">Warna Aksen</span><div class="setting-color-row"><input type="color" id="set-accent" class="color-picker" value="${s.accentColor}"><div class="color-presets">${['#7c3aed','#2563eb','#0891b2','#059669','#d97706','#dc2626','#db2777'].map(c => `<div class="color-preset" data-color="${c}" style="background:${c}"></div>`).join('')}</div></div></div>
-        <div class="setting-row"><span class="setting-label">Warna Background</span><div class="setting-color-row"><input type="color" id="set-bg" class="color-picker" value="${s.bgColor}"><div class="color-presets">${['#020617','#030712','#0f172a','#111827','#1a1a2e','#0d0d0d'].map(c => `<div class="color-preset" data-bg="${c}" style="background:${c}"></div>`).join('')}</div></div></div>
-        <div class="setting-row"><span class="setting-label">Ukuran Teks — <span id="set-fs-lbl">${s.fontSize}%</span></span><input type="range" id="set-fontsize" class="setting-range" min="80" max="130" value="${s.fontSize}"></div>
-        <div class="setting-row"><span class="setting-label">Bahasa TTS</span><select id="set-tts-lang" class="tbl-select" style="width:100%">${[['id-ID','Indonesia'],['en-US','English (US)'],['en-GB','English (UK)'],['ja-JP','日本語'],['ar-SA','عربي']].map(([v,l]) => `<option value="${v}" ${s.ttsLang===v?'selected':''}>${l}</option>`).join('')}</select></div>
-        <div class="server-status-row"><span class="setting-label">Status Server</span><div style="margin-left:auto;display:flex;align-items:center;gap:8px"><span id="server-dot" class="server-dot ${S.serverOnline?'online':'offline'}"></span><span id="server-lbl">${S.serverOnline?'Server OK':'Offline — mode fallback aktif'}</span></div></div>
-        <div style="display:flex;gap:8px;margin-top:4px"><button class="btn-outline" onclick="resetTheme()">Reset Default</button><button class="btn-purple" onclick="saveSettings()">Simpan & Tutup</button></div>
-      </div>
+    <div class="modal-header">
+      <div class="modal-icon">⚙️</div>
+      <div><div class="modal-title">Pengaturan</div><div class="modal-sub">Kustomisasi tampilan secara langsung</div></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
-  `);
+    <div class="modal-body settings-body">
+      <div class="setting-row">
+        <label class="setting-label">Warna Aksen</label>
+        <div class="setting-color-row">
+          <input type="color" id="set-accent" value="${s.accentColor}" class="color-picker"/>
+          <div class="color-presets">
+            ${['#7c3aed','#2563eb','#0891b2','#059669','#d97706','#dc2626','#db2777'].map(c =>
+              `<button class="color-preset" style="background:${c}" data-color="${c}" title="${c}"></button>`
+            ).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Warna Background</label>
+        <div class="setting-color-row">
+          <input type="color" id="set-bg" value="${s.bgColor}" class="color-picker"/>
+          <div class="color-presets">
+            ${['#020617','#030712','#0f172a','#111827','#1a1a2e','#0d0d0d'].map(c =>
+              `<button class="color-preset" style="background:${c}" data-bg="${c}" title="${c}"></button>`
+            ).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Ukuran Teks — <span id="set-fs-lbl">${s.fontSize}%</span></label>
+        <input type="range" id="set-fontsize" min="80" max="130" step="5" value="${s.fontSize}" class="setting-range"/>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Bahasa TTS</label>
+        <select id="set-tts-lang" class="tbl-select" style="width:100%">
+          ${[['id-ID','Indonesia'],['en-US','English (US)'],['en-GB','English (UK)'],['ja-JP','日本語'],['ar-SA','عربي']].map(([v,l]) =>
+            `<option value="${v}" ${s.ttsLang===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="setting-row">
+        <label class="setting-label">Status Server</label>
+        <div class="server-status-row">
+          <div id="server-dot" class="server-dot ${S.serverOnline?'online':'offline'}"></div>
+          <span id="server-lbl" style="font-size:12px;color:#94a3b8">${S.serverOnline?'Server OK':'Offline — mode fallback aktif'}</span>
+          <button class="btn-outline" style="margin-left:auto;padding:4px 10px;font-size:11px" onclick="checkServerHealth()">Cek Ulang</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn-outline" style="flex:1" onclick="resetTheme()">Reset Default</button>
+        <button class="btn-purple" style="flex:2" onclick="saveSettings()">Simpan & Tutup</button>
+      </div>
+    </div>`);
 
+  // Live preview
   document.getElementById('set-accent')?.addEventListener('input', e => {
     S.settings.accentColor = e.target.value;
     S.settings.accentHover = e.target.value;
@@ -367,10 +440,15 @@ function openSettings() {
   });
 }
 window.openSettings = openSettings;
-window.saveSettings = function() { save(); closeModal(); };
+window.saveSettings = function() {
+  save();
+  closeModal();
+};
 window.resetTheme = function() {
   S.settings = { ...DEFAULT_SETTINGS };
-  save(); applyTheme(S.settings); openSettings();
+  save();
+  applyTheme(S.settings);
+  openSettings();
 };
 
 /* ── RENDER SIDEBAR ── */
@@ -391,17 +469,20 @@ function renderSidebar() {
   if (!list) return;
 
   if (q && filtered.length === 0) {
-    list.innerHTML = `<div class="search-empty"><svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg><p>Tidak ditemukan</p><small>Coba kata kunci lain</small></div>`;
+    list.innerHTML = `<div class="search-empty"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><p>Tidak ditemukan</p><small>Coba kata kunci lain</small></div>`;
   } else {
     list.innerHTML = filtered.map(n => {
+      // Find where the match is for indicator
       let matchHint = '';
       if (q) {
         if (!n.title.toLowerCase().includes(q) && n.tag.toLowerCase().includes(q)) {
           matchHint = `<span class="match-hint">tag: ${escHtml(n.tag)}</span>`;
         } else if (!n.title.toLowerCase().includes(q)) {
+          // match in content
           const matchBlock = n.blocks.find(b => {
             const texts = [b.content, b.front, b.back].filter(Boolean);
-            return texts.some(t => t.toLowerCase().includes(q)) || (b.rows && b.rows.some(row => row.some(c => String(c||'').toLowerCase().includes(q))));
+            return texts.some(t => t.toLowerCase().includes(q)) ||
+              (b.rows && b.rows.some(row => row.some(c => String(c||'').toLowerCase().includes(q))));
           });
           if (matchBlock) {
             const snippet = (matchBlock.content || matchBlock.front || '').slice(0, 40);
@@ -410,15 +491,25 @@ function renderSidebar() {
         }
       }
       return `
-        <div class="note-item ${n.id===S.activeId?'active':''}" data-id="${n.id}">
-          <div class="note-item-top"><span class="note-tag">${escHtml(n.tag)}</span>${n.starred ? '<span class="note-star">★</span>' : ''}</div>
-          <div class="note-title">${escHtml(n.title)}</div>
-          ${matchHint}
-          <div class="note-time"><span>🕒 ${timeAgo(n.updatedAt)}</span><button class="note-delete" data-del="${n.id}" title="Hapus">✕</button></div>
-        </div>`;
+      <div class="note-item ${n.id === S.activeId ? 'active' : ''}" data-id="${n.id}">
+        <div class="note-item-top">
+          <span class="note-tag">${escHtml(n.tag)}</span>
+          ${n.starred ? '<span class="note-star">★</span>' : ''}
+          <button class="note-delete" data-del="${n.id}" title="Hapus">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+        <div class="note-title">${escHtml(n.title)}</div>
+        ${matchHint}
+        <div class="note-time">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          ${timeAgo(n.updatedAt)}
+        </div>
+      </div>`;
     }).join('');
   }
 
+  // stats
   const starred = S.notes.filter(n => n.starred).length;
   document.getElementById('sidebar-stats').innerHTML = `
     <div class="stat-box neutral"><div class="stat-num">${S.notes.length}</div><div class="stat-lbl">Catatan</div></div>
@@ -431,78 +522,150 @@ function renderSidebar() {
 function renderBlock(block, idx) {
   const controls = `
     <div class="block-controls">
-      <button class="block-ctrl-btn up" data-move="${idx}" data-dir="-1">↑</button>
-      <button class="block-ctrl-btn down" data-move="${idx}" data-dir="1">↓</button>
-      <button class="block-ctrl-btn del" data-del-block="${idx}">✕</button>
+      <button class="block-ctrl-btn up" data-move="${idx}" data-dir="-1" title="Naik">↑</button>
+      <button class="block-ctrl-btn down" data-move="${idx}" data-dir="1" title="Turun">↓</button>
+      <button class="block-ctrl-btn" data-del-block="${idx}" title="Hapus">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
     </div>`;
 
   if (block.type === 'heading') return `
-    <div class="block-wrap"><div class="block-heading" data-block="${idx}" data-field="content" contenteditable="true" data-placeholder="Judul...">${escHtml(block.content)}</div>${controls}</div>`;
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="block-heading" contenteditable="true"
+        data-placeholder="Heading..." data-block="${idx}" data-field="content"
+        spellcheck="false">${escHtml(block.content)}</div>
+    </div>`;
 
   if (block.type === 'text') return `
-    <div class="block-wrap"><div class="block-text" data-block="${idx}" data-field="content" contenteditable="true" data-placeholder="Mulai menulis...">${escHtml(block.content)}</div>${controls}</div>`;
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="block-text" contenteditable="true"
+        data-placeholder="Tulis sesuatu..." data-block="${idx}" data-field="content"
+        spellcheck="false">${escHtml(block.content)}</div>
+    </div>`;
 
   if (block.type === 'code') return `
-    <div class="block-wrap"><div class="block-code" data-block="${idx}" data-field="content" contenteditable="true">${escHtml(block.content)}</div>${controls}</div>`;
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <pre class="block-code" contenteditable="true"
+        data-block="${idx}" data-field="content"
+        spellcheck="false">${escHtml(block.content)}</pre>
+    </div>`;
 
   if (block.type === 'table') {
     const rows = block.rows || [['Header 1','Header 2'],['Baris 1','Nilai 1']];
     const head = rows[0] || [];
     const body = rows.slice(1);
     return `
-      <div class="block-wrap">
-        <div class="block-table-wrap"><table class="block-table">
-          <thead><tr>${head.map((h,ci) => `<th data-block="${idx}" data-field="rows" data-row="0" data-col="${ci}" contenteditable="true">${escHtml(h)}</th>`).join('')}</tr></thead>
-          <tbody>${body.map((row,ri) => `<tr>${row.map((cell,ci) => `<td data-block="${idx}" data-field="rows" data-row="${ri+1}" data-col="${ci}" contenteditable="true">${escHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
-        </table></div>${controls}
-      </div>`;
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="block-table-wrap">
+        <table class="block-table" data-block="${idx}">
+          <thead><tr>${head.map((h,ci) => `<th contenteditable="true" data-block="${idx}" data-row="0" data-col="${ci}">${escHtml(h)}</th>`).join('')}</tr></thead>
+          <tbody>${body.map((row,ri) => `<tr>${row.map((cell,ci) => `<td contenteditable="true" data-block="${idx}" data-row="${ri+1}" data-col="${ci}">${escHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
   }
 
   if (block.type === 'callout') {
-    const icons  = { tip:'💡', info:'ℹ️', warning:'⚠️' };
+    const icons  = { tip:'TIP', info:'INF', warning:'WRN' };
     const labels = { tip:'Tips', info:'Info', warning:'Perhatian' };
     return `
-      <div class="block-wrap">
-        <div class="block-callout ${block.variant||'tip'}"><span class="callout-icon">${icons[block.variant]||'📌'}</span><div><div class="callout-lbl">${labels[block.variant]||'Catatan'}</div><div class="callout-text" data-block="${idx}" data-field="content" contenteditable="true" data-placeholder="Tulis catatan...">${escHtml(block.content)}</div></div></div>${controls}
-      </div>`;
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="block-callout ${block.variant||'info'}">
+        <span class="callout-icon callout-icon-${block.variant||'info'}">${icons[block.variant]||'NOTE'}</span>
+        <div>
+          <div class="callout-lbl">${labels[block.variant]||'Catatan'}</div>
+          <div class="callout-text" contenteditable="true"
+            data-block="${idx}" data-field="content">${escHtml(block.content)}</div>
+        </div>
+      </div>
+    </div>`;
   }
 
   if (block.type === 'flashcard') return `
-    <div class="block-wrap">
-      <div class="flashcard-wrap"><div class="flashcard-inner"><div class="flashcard-face front"><div class="fc-label">Pertanyaan</div><div class="fc-text">${escHtml(block.front)}</div><div class="fc-hint">Klik untuk lihat jawaban →</div></div><div class="flashcard-face back"><div class="fc-label">Jawaban</div><div class="fc-text">${escHtml(block.back)}</div><div class="fc-hint">← Klik untuk kembali</div></div></div></div>${controls}
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="flashcard-wrap" data-fc="${idx}">
+        <div class="flashcard-inner">
+          <div class="flashcard-face front">
+            <div class="fc-label">Pertanyaan</div>
+            <div class="fc-text">${escHtml(block.front)}</div>
+            <div class="fc-hint">Klik untuk lihat jawaban →</div>
+          </div>
+          <div class="flashcard-face back">
+            <div class="fc-label">Jawaban</div>
+            <div class="fc-text">${escHtml(block.back)}</div>
+            <div class="fc-hint">← Klik untuk kembali</div>
+          </div>
+        </div>
+      </div>
     </div>`;
 
   if (block.type === 'ai-extract') return `
-    <div class="block-wrap">
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
       <div class="block-ai-extract">
-        <div class="ai-extract-label"><span>🤖</span> Diekstrak dari Gambar <button class="ai-extract-edit-btn" data-extract-copy="${idx}">Salin ke blok</button></div>
-        <div class="ai-extract-text" data-block="${idx}" data-field="content" contenteditable="true">${escHtml(block.content)}</div>
-      </div>${controls}
+        <div class="ai-extract-label">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l2 2"/></svg>
+          Diekstrak dari Gambar
+          <button class="ai-extract-edit-btn" data-extract-copy="${idx}" title="Salin ke blok teks">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Salin ke blok
+          </button>
+        </div>
+        <div class="ai-extract-text" contenteditable="true"
+          data-block="${idx}" data-field="content"
+          spellcheck="false">${escHtml(block.content)}</div>
+      </div>
     </div>`;
 
   if (block.type === 'mindmap') {
     const mapData = block.mapData || { center: block.title || 'Topik', branches: [] };
     return `
-      <div class="block-wrap">
-        <div class="block-mindmap"><div class="mindmap-label"><span>🗺️</span> Peta Konsep — ${escHtml(mapData.center)}</div><div class="mindmap-canvas-wrap"><div class="mindmap-preview">${renderMindMapSVG(mapData)}</div></div></div>${controls}
-      </div>`;
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="block-mindmap">
+        <div class="mindmap-label">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/><line x1="2" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="22" y2="12"/></svg>
+          Peta Konsep — ${escHtml(mapData.center)}
+        </div>
+        <div class="mindmap-canvas-wrap">
+          ${renderMindMapSVG(mapData)}
+        </div>
+      </div>
+    </div>`;
   }
 
   if (block.type === 'problem-solver') {
     const isGeometry = block.subtype === 'geometry';
-    const icon = isGeometry ? '📐' : '🧮';
+    const icon = isGeometry ? '[GEO]' : '[MTK]';
     const label = isGeometry ? 'Penyelesaian Geometri' : 'Penyelesaian Soal';
+    // Parse sections from content
     const lines = (block.content || '').split('\n');
     const formatted = lines.map(l => {
-      if (l.startsWith('Bangun:') || l.startsWith('Ditanya:') || l.startsWith('Jawaban:') || l.startsWith('Kesimpulan:')) return `<div class="solver-section">${escHtml(l)}</div>`;
-      if (l.startsWith('Ukuran:') || l.startsWith('Rumus:') || l.startsWith('Perhitungan:') || l.startsWith('Diketahui:') || l.startsWith('Penyelesaian:')) return `<div class="solver-key">${escHtml(l)}</div>`;
-      if (l.trim().startsWith('-')) return `<div class="solver-item">${escHtml(l)}</div>`;
+      if (l.startsWith('Bangun:') || l.startsWith('Ditanya:') || l.startsWith('Jawaban:') || l.startsWith('Kesimpulan:')) {
+        return `<div class="solver-key">${escHtml(l)}</div>`;
+      }
+      if (l.startsWith('Ukuran:') || l.startsWith('Rumus:') || l.startsWith('Perhitungan:') || l.startsWith('Diketahui:') || l.startsWith('Penyelesaian:')) {
+        return `<div class="solver-section">${escHtml(l)}</div>`;
+      }
+      if (l.trim().startsWith('-')) {
+        return `<div class="solver-item">${escHtml(l)}</div>`;
+      }
       return l.trim() ? `<div class="solver-line">${escHtml(l)}</div>` : '<div class="solver-gap"></div>';
     }).join('');
     return `
-      <div class="block-wrap">
-        <div class="block-problem-solver"><div class="solver-label">${icon} ${label}</div><div class="solver-body">${formatted}</div></div>${controls}
-      </div>`;
+    <div class="block-wrap" data-block-idx="${idx}">
+      ${controls}
+      <div class="block-problem-solver">
+        <div class="solver-label">${icon} ${label}</div>
+        <div class="solver-body">${formatted}</div>
+      </div>
+    </div>`;
   }
 
   return '';
@@ -527,29 +690,45 @@ function buildTableRows(cols, rows, headers) {
 
 function renderAddBlockMenu() {
   return `
-    <div class="add-block-divider"><button class="add-block-toggle" id="add-block-btn">➕ Tambah blok</button></div>
-    <div id="add-block-panel" class="${S.addBlockOpen?'':'hidden'}">
-      <div class="add-block-strip">
-        <button class="strip-item" data-add="heading"><span class="strip-icon">H</span><span class="strip-lbl">Judul</span></button>
-        <button class="strip-item" data-add="text"><span class="strip-icon">T</span><span class="strip-lbl">Teks</span></button>
-        <button class="strip-item" data-add="code"><span class="strip-icon">&lt;/&gt;</span><span class="strip-lbl">Kode</span></button>
-        <button class="strip-item" data-add="callout-tip"><span class="strip-icon strip-icon-tip">●</span><span class="strip-lbl">Tips</span></button>
-        <button class="strip-item" data-add="callout-info"><span class="strip-icon strip-icon-info">●</span><span class="strip-lbl">Info</span></button>
-        <button class="strip-item" data-add="callout-warning"><span class="strip-icon strip-icon-warn">●</span><span class="strip-lbl">Warn</span></button>
-        <button class="strip-item" data-add="flashcard"><span class="strip-icon">Q/A</span><span class="strip-lbl">Flash</span></button>
-        <button class="strip-item" data-add="table-picker"><span class="strip-icon">▦</span><span class="strip-lbl">Tabel</span></button>
-        <button class="strip-item" data-add="mindmap-ai"><span class="strip-icon">🗺️</span><span class="strip-lbl">Peta</span></button>
-      </div>
-      <div id="table-tpl-wrap" class="hidden">
-        <div class="table-builder">
-          <div class="table-builder-row">
-            <div class="tbl-field"><span class="tbl-label">Tipe</span><select id="tbl-tpl-sel" class="tbl-select">${TABLE_TEMPLATES.map((t,i) => `<option value="${i}">${t.label}</option>`).join('')}</select></div>
-            <div class="tbl-field"><span class="tbl-label">Kolom</span><div class="tbl-stepper"><button class="step-btn" data-step="cols" data-dir="-1">−</button><input type="number" id="tbl-cols" class="step-val" value="2" min="1" max="10"><button class="step-btn" data-step="cols" data-dir="1">+</button></div></div>
-            <div class="tbl-field"><span class="tbl-label">Baris</span><div class="tbl-stepper"><button class="step-btn" data-step="rows" data-dir="-1">−</button><input type="number" id="tbl-rows" class="step-val" value="3" min="2" max="30"><button class="step-btn" data-step="rows" data-dir="1">+</button></div></div>
-            <button id="tbl-create-btn" class="tbl-create-btn">Buat Tabel</button>
+    <div class="add-block-strip" id="add-block-menu">
+      <button class="strip-item" data-add="heading"  title="Heading"><span class="strip-icon">H</span><span class="strip-lbl">Judul</span></button>
+      <button class="strip-item" data-add="text"     title="Teks"><span class="strip-icon">T</span><span class="strip-lbl">Teks</span></button>
+      <button class="strip-item" data-add="code"     title="Kode"><span class="strip-icon">&lt;/&gt;</span><span class="strip-lbl">Kode</span></button>
+      <button class="strip-item" data-add="callout-tip"     title="Tips"><span class="strip-icon strip-icon-tip">TIP</span><span class="strip-lbl">Tips</span></button>
+      <button class="strip-item" data-add="callout-info"    title="Info"><span class="strip-icon strip-icon-info">INF</span><span class="strip-lbl">Info</span></button>
+      <button class="strip-item" data-add="callout-warning" title="Peringatan"><span class="strip-icon strip-icon-warn">WRN</span><span class="strip-lbl">Warn</span></button>
+      <button class="strip-item" data-add="flashcard" title="Flashcard"><span class="strip-icon">Q/A</span><span class="strip-lbl">Flash</span></button>
+      <button class="strip-item" data-add="table-picker" title="Tabel"><span class="strip-icon">▦</span><span class="strip-lbl">Tabel</span></button>
+      <button class="strip-item" data-add="mindmap-ai" title="Peta Konsep"><span class="strip-icon">🗺️</span><span class="strip-lbl">Peta</span></button>
+    </div>
+    <div id="table-tpl-wrap" class="hidden">
+      <div class="table-builder">
+        <div class="table-builder-row">
+          <div class="tbl-field">
+            <label class="tbl-label">Tipe</label>
+            <select id="tbl-tpl-sel" class="tbl-select">
+              ${TABLE_TEMPLATES.map((t,i) => `<option value="${i}">${t.label}</option>`).join('')}
+            </select>
           </div>
-          <div id="tbl-preview" class="tbl-preview"></div>
+          <div class="tbl-field">
+            <label class="tbl-label">Kolom</label>
+            <div class="tbl-stepper">
+              <button class="step-btn" data-step="cols" data-dir="-1">-</button>
+              <input id="tbl-cols" class="step-val" type="number" min="1" max="10" value="2"/>
+              <button class="step-btn" data-step="cols" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="tbl-field">
+            <label class="tbl-label">Baris</label>
+            <div class="tbl-stepper">
+              <button class="step-btn" data-step="rows" data-dir="-1">-</button>
+              <input id="tbl-rows" class="step-val" type="number" min="2" max="30" value="3"/>
+              <button class="step-btn" data-step="rows" data-dir="1">+</button>
+            </div>
+          </div>
+          <button id="tbl-create-btn" class="tbl-create-btn">Buat Tabel</button>
         </div>
+        <div id="tbl-preview" class="tbl-preview"></div>
       </div>
     </div>`;
 }
@@ -559,30 +738,62 @@ function renderEditor() {
   const note = activeNote();
   const inner = document.getElementById('editor-inner');
   if (!inner) return;
-  if (!note) { inner.innerHTML = '<div style="padding:40px;text-align:center;color:#475569"><h3>Pilih atau buat catatan baru</h3></div>'; return; }
+  if (!note) { inner.innerHTML = '<p style="color:#475569;text-align:center;margin-top:60px;">Pilih atau buat catatan baru</p>'; return; }
 
   inner.className = `font-${note.font||'outfit'}`;
   inner.innerHTML = `
     <div class="note-header">
       <div class="note-meta">
-        <button id="tag-badge-btn" class="tag-badge">${escHtml(note.tag)}</button>
-        <span class="note-ts">🕒 ${timeAgo(note.updatedAt)}</span>
-        <button id="save-btn" class="save-btn">💾 Simpan</button>
+        <span class="tag-badge" id="tag-badge-btn" title="Ubah tag">${escHtml(note.tag)}</span>
+        <span class="note-ts">${timeAgo(note.updatedAt)}</span>
+        <button class="save-btn" id="save-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Simpan
+        </button>
       </div>
-      <textarea id="note-title-input" class="note-title-input" placeholder="Judul Catatan..." rows="1">${escHtml(note.title)}</textarea>
+      <textarea id="note-title-input" class="note-title-input" rows="1"
+        placeholder="Judul catatan...">${escHtml(note.title)}</textarea>
+      <div class="font-toolbar">
+        <label>Font:</label>
+        <select class="font-select" id="font-select">
+          ${FONTS.map(f => `<option value="${f.value}" ${note.font===f.value?'selected':''}>${f.label}</option>`).join('')}
+        </select>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          <button id="btn-tts" class="tts-btn" title="Baca catatan">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <span class="tts-lbl">Baca</span>
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="font-toolbar">
-      <label>Font:</label>
-      <select id="font-select" class="font-select">${FONTS.map(f => `<option value="${f.value}" ${note.font===f.value?'selected':''}>${f.label}</option>`).join('')}</select>
-      <button id="btn-tts" class="tts-btn"><span class="tts-lbl">Baca</span> 🎧</button>
+
+    <div class="blocks-container" id="blocks-container">
+      ${note.blocks.map((b,i) => renderBlock(b,i)).join('')}
     </div>
-    <div id="blocks-container" class="blocks-container">${note.blocks.map((b,i) => renderBlock(b,i)).join('')}</div>
-    <div class="add-block-wrap">${renderAddBlockMenu()}</div>
+
+    <div class="add-block-wrap">
+      <div class="add-block-divider">
+        <button id="add-block-btn" class="add-block-toggle">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Tambah blok
+          <svg id="add-block-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s;transform:rotate(${S.addBlockOpen?'180':'0'}deg)"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div id="add-block-panel" class="${S.addBlockOpen ? '' : 'hidden'}">
+        ${renderAddBlockMenu()}
+      </div>
+    </div>
+
     <div class="upload-strip">
-      <button id="btn-upload-img" class="upload-strip-btn">📷 Scan Gambar / Tulisan Tangan</button>
-      <button id="btn-upload-math" class="upload-strip-btn math">📐 Scan Soal Matematika / Geometri</button>
+      <button id="btn-upload-img" class="upload-strip-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+        Scan Gambar / Tulisan Tangan
+      </button>
+      <button id="btn-upload-math" class="upload-strip-btn math">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+        Scan Soal Matematika / Geometri
+      </button>
     </div>
-    <input type="file" id="file-input" class="hidden" accept="image/*">
   `;
   bindEditorEvents();
 }
@@ -592,6 +803,7 @@ function bindEditorEvents() {
   const note = activeNote();
   if (!note) return;
 
+  /* title */
   const titleEl = document.getElementById('note-title-input');
   if (titleEl) {
     autoResizeTextarea(titleEl);
@@ -604,16 +816,24 @@ function bindEditorEvents() {
     });
   }
 
-  const fontSel = document.getElementById('font-select'); 
+  /* font */
+  const fontSel = document.getElementById('font-select');
   if (fontSel) fontSel.addEventListener('change', () => {
     note.font = fontSel.value;
     document.getElementById('editor-inner').className = `font-${note.font}`;
     save();
   });
 
-  document.getElementById('save-btn')?.addEventListener('click', () => { save(); showSavedBadge(); });
+  /* save btn */
+  document.getElementById('save-btn')?.addEventListener('click', () => {
+    save();
+    showSavedBadge();
+  });
+
+  /* tag badge */
   document.getElementById('tag-badge-btn')?.addEventListener('click', () => openTagModal());
 
+  /* contenteditable blocks */
   document.querySelectorAll('[data-block][data-field]').forEach(el => {
     el.addEventListener('input', () => {
       const idx = parseInt(el.dataset.block);
@@ -629,7 +849,8 @@ function bindEditorEvents() {
     });
   });
 
-  document.querySelectorAll('[data-row] [data-col]').forEach(el => {
+  /* table cells */
+  document.querySelectorAll('[data-row][data-col]').forEach(el => {
     el.addEventListener('input', () => {
       const idx = parseInt(el.dataset.block);
       const row = parseInt(el.dataset.row);
@@ -639,10 +860,12 @@ function bindEditorEvents() {
     });
   });
 
+  /* flashcard flip */
   document.querySelectorAll('.flashcard-wrap').forEach(el => {
     el.addEventListener('click', () => el.classList.toggle('flipped'));
   });
 
+  /* block delete */
   document.querySelectorAll('[data-del-block]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -654,6 +877,7 @@ function bindEditorEvents() {
     });
   });
 
+  /* block move */
   document.querySelectorAll('[data-move]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -668,11 +892,13 @@ function bindEditorEvents() {
     });
   });
 
+  /* add block toggle */
   document.getElementById('add-block-btn')?.addEventListener('click', () => {
-    S.addBlockOpen = !S.addBlockOpen; 
+    S.addBlockOpen = !S.addBlockOpen;
     document.getElementById('add-block-panel')?.classList.toggle('hidden', !S.addBlockOpen);
   });
 
+  /* add block items */
   document.querySelectorAll('[data-add]').forEach(btn => {
     btn.addEventListener('click', () => {
       const type = btn.dataset.add;
@@ -692,6 +918,7 @@ function bindEditorEvents() {
     });
   });
 
+  /* table builder */
   const tplSel  = document.getElementById('tbl-tpl-sel');
   const colsInp = document.getElementById('tbl-cols');
   const rowsInp = document.getElementById('tbl-rows');
@@ -704,9 +931,13 @@ function bindEditorEvents() {
     const prev = document.getElementById('tbl-preview');
     if (!prev) return;
     prev.innerHTML = `
-      <table class="tbl-prev-table"><thead><tr>${head.map(h => `<th>${escHtml(h)}</th>`).join('')}</tr></thead><tbody>${Array.from({length: rows-1}, () => `<tr>${Array(cols).fill('<td></td>').join('')}</tr>`).join('')}</tbody></table>
-      <div class="tbl-prev-info">${cols} kolom × ${rows} baris (termasuk header)</div>
-    `;
+      <table class="tbl-prev-table">
+        <thead><tr>${head.map(h => `<th>${escHtml(h)}</th>`).join('')}</tr></thead>
+        <tbody>${Array.from({length: rows-1}, () =>
+          `<tr>${Array(cols).fill('<td></td>').join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="tbl-prev-info">${cols} kolom &times; ${rows} baris (termasuk header)</div>`;
   }
 
   tplSel?.addEventListener('change', () => {
@@ -720,7 +951,7 @@ function bindEditorEvents() {
 
   document.querySelectorAll('.step-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const target = btn.dataset.step;
+      const target = btn.dataset.step; // 'cols' | 'rows'
       const inp = document.getElementById(`tbl-${target}`);
       if (!inp) return;
       const dir  = parseInt(btn.dataset.dir);
@@ -746,9 +977,15 @@ function bindEditorEvents() {
 
   syncPreview();
 
-  document.getElementById('btn-upload-img')?.addEventListener('click', () => document.getElementById('file-input').click());
-  document.getElementById('btn-upload-math')?.addEventListener('click', () => document.getElementById('file-input').click());
+  /* upload img */
+  document.getElementById('btn-upload-img')?.addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+  document.getElementById('btn-upload-math')?.addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
 
+  /* ai-extract copy to plain text block */
   document.querySelectorAll('[data-extract-copy]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -762,6 +999,7 @@ function bindEditorEvents() {
     });
   });
 
+  /* TTS button */
   document.getElementById('btn-tts')?.addEventListener('click', speakNote);
 }
 
@@ -787,6 +1025,7 @@ function addBlock(type) {
   note.updatedAt = Date.now();
   save();
   renderEditor();
+  // focus last block
   setTimeout(() => {
     const all = document.querySelectorAll('#blocks-container [contenteditable]');
     if (all.length) { const last = all[all.length-1]; last.focus(); placeCaretAtEnd(last); }
@@ -845,16 +1084,19 @@ function renderChatMessages(containerId = 'chat-messages') {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = S.chat.messages.map((m, i) => {
-    const isApplicable = m.role === 'ai' && i > 0 && (m.text.length > 60) && !m.text.startsWith('❌') && !m.text.startsWith('✅');
+    const isApplicable = m.role === 'ai' && i > 0 &&
+      (m.text.length > 60) && !m.text.startsWith('❌') && !m.text.startsWith('✅');
     return `
-      <div class="chat-msg ${m.role}">
-        <div class="chat-bubble ${m.role}">${escHtml(m.text)}</div>
-        ${isApplicable ? `<button class="chat-apply-btn" onclick="applyAIToNote(${i})">✨ Apply ke catatan</button>` : ''}
-      </div>
-    `;
+    <div class="chat-msg ${m.role}">
+      <div class="chat-bubble ${m.role}">${escHtml(m.text)}</div>
+      ${isApplicable ? `<button class="chat-apply-btn" onclick="applyAIToNote(${i})" title="Tambah ke catatan">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Apply ke catatan
+      </button>` : ''}
+    </div>`;
   }).join('');
   if (S.chat.loading) {
-    el.innerHTML += `<div class="chat-msg"><div class="chat-bubble ai"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
+    el.innerHTML += `<div class="chat-msg ai"><div class="chat-bubble ai"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
   }
   el.scrollTop = el.scrollHeight;
 }
@@ -895,6 +1137,7 @@ async function handleImage(file) {
   const note = activeNote();
   if (!note) return;
 
+  // show loading block
   note.blocks.push({ type: 'text', content: '⏳ Menganalisis gambar...' });
   const loadingIdx = note.blocks.length - 1;
   note.updatedAt = Date.now();
@@ -913,11 +1156,16 @@ async function handleImage(file) {
     });
     const data = await res.json();
     const rawText = data.text || '(tidak ada konten)';
-    const ocrType = data.type || 'text';
+    const ocrType = data.type || 'text'; // 'geometry' | 'math' | 'text'
 
     if (ocrType === 'geometry' || ocrType === 'math') {
+      // Strip the [GEOMETRI] / [SOAL] header tag
       const cleanText = rawText.replace(/^\[(GEOMETRI|SOAL)\]\s*/i, '').trim();
-      note.blocks[loadingIdx] = { type: 'problem-solver', subtype: ocrType, content: cleanText };
+      note.blocks[loadingIdx] = {
+        type: 'problem-solver',
+        subtype: ocrType,
+        content: cleanText
+      };
       S.chat.messages.push({ role: 'ai', text: `✅ ${ocrType === 'geometry' ? '📐 Bangun geometri terdeteksi!' : '🧮 Soal matematika terdeteksi!'} Penyelesaian sudah ditambahkan ke catatan.` });
     } else {
       note.blocks[loadingIdx] = { type: 'ai-extract', content: rawText };
@@ -953,9 +1201,19 @@ async function openQuiz() {
   const content = noteToText(note);
   if (!content.trim()) { alert('Catatan masih kosong, tambahkan konten dulu.'); return; }
 
+  // show loading modal
   showModal(`
-    <div class="modal-box"><div class="modal-header"><div class="modal-icon">📝</div><div><div class="modal-title">Membuat Kuis ${escHtml(note.title)}</div></div></div><div class="modal-body"><div class="quiz-loading"><div class="spinner"></div><p>AI sedang membuat soal dari catatan ini...</p></div></div></div>
-  `);
+    <div class="modal-header">
+      <div class="modal-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+      <div><div class="modal-title">Membuat Kuis</div><div class="modal-sub">${escHtml(note.title)}</div></div>
+      <button class="modal-close" onclick="closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="quiz-loading">
+        <div class="spinner"></div>
+        <p style="font-size:13px;color:#64748b">AI sedang membuat soal dari catatan ini...</p>
+      </div>
+    </div>`);
 
   try {
     const res = await fetch('/api/quiz', {
@@ -968,7 +1226,8 @@ async function openQuiz() {
     quizState = { questions: data.questions, idx: 0, sel: null, submitted: false, score: 0, done: false };
     renderQuiz();
   } catch (e) {
-    showModal(`<div class="modal-box"><div class="modal-header"><div class="modal-icon" style="background:#ef4444">⚠️</div><div><div class="modal-title">Gagal</div><div class="modal-sub">Gagal generate soal: ${e.message} ✕</div></div></div><div class="modal-body"><button class="btn-outline" onclick="closeModal()">Tutup</button></div></div>`);
+    showModal(`<div class="modal-header"><div class="modal-icon">⚠️</div><div><div class="modal-title">Gagal</div></div><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body"><p style="color:#f87171;font-size:13px">Gagal generate soal: ${e.message}</p><br><button class="btn-purple" onclick="closeModal()">Tutup</button></div>`);
   }
 }
 
@@ -978,9 +1237,23 @@ function renderQuiz() {
   if (done) {
     const pct = Math.round(score / questions.length * 100);
     showModal(`
-      <div class="modal-box"><div class="modal-header"><div class="modal-icon">🎯</div><div><div class="modal-title">Hasil Kuis ${escHtml(note?.title||'')}</div></div></div>
-      <div class="modal-body"><div class="quiz-result"><div class="quiz-result-emoji">${score >= questions.length*0.7 ? '🎉' : '📚'}</div><div class="quiz-result-title">${score >= questions.length*0.7 ? 'Mantap!' : 'Terus Semangat!'}</div><div class="quiz-result-sub">Benar ${score} dari ${questions.length} soal</div><div class="quiz-score-ring">${pct}%</div><div class="quiz-result-btns"><button class="btn-outline" onclick="closeModal()">Tutup</button><button class="btn-purple" onclick="quizRetry()">Ulangi</button></div></div></div></div>
-    `);
+      <div class="modal-header">
+        <div class="modal-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <div><div class="modal-title">Hasil Kuis</div><div class="modal-sub">${escHtml(note?.title||'')}</div></div>
+        <button class="modal-close" onclick="closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <div class="quiz-result">
+          <div class="quiz-result-emoji">${score >= questions.length*0.7 ? '🎉' : '📚'}</div>
+          <div class="quiz-result-title">${score >= questions.length*0.7 ? 'Mantap!' : 'Terus Semangat!'}</div>
+          <div class="quiz-result-sub">Benar ${score} dari ${questions.length} soal</div>
+          <div class="quiz-score-ring">${pct}%</div>
+          <div class="quiz-result-btns">
+            <button class="btn-outline" onclick="closeModal()">Tutup</button>
+            <button class="btn-purple" onclick="quizRetry()">Ulangi</button>
+          </div>
+        </div>
+      </div>`);
     if (score >= questions.length * 0.7) showConfetti();
     return;
   }
@@ -988,9 +1261,16 @@ function renderQuiz() {
   const q = questions[idx];
   const letters = ['A','B','C','D'];
   showModal(`
-    <div class="modal-box"><div class="modal-header"><div class="modal-icon">📝</div><div><div class="modal-title">Latihan Kuis ${escHtml(note?.title||'')}</div><div class="modal-sub">${idx+1}/${questions.length}</div></div></div>
+    <div class="modal-header">
+      <div class="modal-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+      <div class="flex-1"><div class="modal-title">Latihan Kuis</div><div class="modal-sub">${escHtml(note?.title||'')}</div></div>
+      <button class="modal-close" onclick="closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
     <div class="modal-body">
-      <div class="quiz-progress-wrap"><div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${((idx+1)/questions.length)*100}%"></div></div><div class="quiz-counter">${idx+1}/${questions.length}</div></div>
+      <div class="quiz-progress-wrap">
+        <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${(idx/questions.length)*100}%"></div></div>
+        <span class="quiz-counter">${idx+1}/${questions.length}</span>
+      </div>
       <div class="quiz-q">${escHtml(q.q)}</div>
       <div class="quiz-opts">
         ${q.opts.map((opt,i) => {
@@ -1004,16 +1284,35 @@ function renderQuiz() {
       </div>
       ${submitted ? `<div class="quiz-exp"><b>Penjelasan:</b> ${escHtml(q.exp)}</div>` : ''}
       <div class="quiz-actions">
-        ${submitted ? (idx+1 >= questions.length ? `<button class="quiz-btn-confirm" onclick="quizNext()">Lihat Hasil</button>` : `<button class="quiz-btn-confirm" onclick="quizNext()">Selanjutnya</button>`) : `<button class="quiz-btn-confirm" onclick="quizConfirm()" ${sel===null?'disabled':''}>Konfirmasi Jawaban</button>`}
+        <button class="quiz-btn-confirm" onclick="${submitted ? 'quizNext()' : 'quizConfirm()'}" ${!submitted && sel===null ? 'disabled' : ''}>
+          ${submitted ? (idx+1 >= questions.length ? '<span>Lihat Hasil</span>' : '<span>Selanjutnya</span> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>') : '<span>Konfirmasi Jawaban</span>'}
+        </button>
       </div>
-    </div></div>
-  `);
+    </div>`);
 }
 
-window.quizSelect = function(i) { if (quizState.submitted) return; quizState.sel = i; renderQuiz(); };
-window.quizConfirm = function() { if (quizState.sel === null) return; quizState.submitted = true; if (quizState.sel === quizState.questions[quizState.idx].ans) quizState.score++; renderQuiz(); };
-window.quizNext = function() { quizState.idx++; quizState.sel = null; quizState.submitted = false; if (quizState.idx >= quizState.questions.length) quizState.done = true; renderQuiz(); };
-window.quizRetry = function() { quizState = { ...quizState, idx: 0, sel: null, submitted: false, score: 0, done: false }; renderQuiz(); };
+window.quizSelect = function(i) {
+  if (quizState.submitted) return;
+  quizState.sel = i;
+  renderQuiz();
+};
+window.quizConfirm = function() {
+  if (quizState.sel === null) return;
+  quizState.submitted = true;
+  if (quizState.sel === quizState.questions[quizState.idx].ans) quizState.score++;
+  renderQuiz();
+};
+window.quizNext = function() {
+  quizState.idx++;
+  quizState.sel = null;
+  quizState.submitted = false;
+  if (quizState.idx >= quizState.questions.length) quizState.done = true;
+  renderQuiz();
+};
+window.quizRetry = function() {
+  quizState = { ...quizState, idx: 0, sel: null, submitted: false, score: 0, done: false };
+  renderQuiz();
+};
 
 /* ── TAG MODAL ── */
 function openTagModal() {
@@ -1022,15 +1321,26 @@ function openTagModal() {
 }
 function renderTagModal(note) {
   showModal(`
-    <div class="modal-box"><div class="modal-header"><div class="modal-icon">🏷️</div><div><div class="modal-title">Kelola Tag</div><div class="modal-sub">Tag aktif: ${escHtml(note.tag)}</div></div><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-header">
+      <div class="modal-icon">🏷️</div>
+      <div><div class="modal-title">Kelola Tag</div><div class="modal-sub">Tag aktif: ${escHtml(note.tag)}</div></div>
+      <button class="modal-close" onclick="closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
     <div class="modal-body">
-      <div class="tag-input-row"><input type="text" id="new-tag-input" class="tag-input" placeholder="Tambah tag baru..."><button class="btn-purple" onclick="addCustomTag()">+</button></div>
-      <div class="tag-list-edit">
-        ${S.tags.map(t => `<button class="tag-chip ${note.tag===t?'active':''}" onclick="selectTag('${escHtml(t)}')">${escHtml(t)}<span class="tag-chip-del" onclick="removeTag(event,'${escHtml(t)}')">×</span></button>`).join('')}
+      <div class="tag-input-row">
+        <input class="tag-input" id="new-tag-input" placeholder="Buat tag baru..." maxlength="20"/>
+        <button class="btn-purple" onclick="addCustomTag()">Tambah</button>
       </div>
-      <button class="btn-outline" style="width:100%" onclick="closeModal()">Selesai</button>
-    </div></div>
-  `);
+      <p style="font-size:11px;color:#475569;margin-bottom:8px;">Pilih tag untuk catatan ini:</p>
+      <div class="tag-list-edit" id="tag-list-edit">
+        ${S.tags.map(t => `
+          <div class="tag-chip ${t===note.tag?'active':''}" onclick="selectTag('${escHtml(t)}')">
+            ${escHtml(t)}
+            <button class="tag-chip-del" onclick="removeTag(event,'${escHtml(t)}')" title="Hapus tag">×</button>
+          </div>`).join('')}
+      </div>
+      <button class="btn-outline" style="width:100%;margin-top:4px;" onclick="closeModal()">Selesai</button>
+    </div>`);
   document.getElementById('new-tag-input')?.addEventListener('keydown', e => { if (e.key==='Enter') addCustomTag(); });
 }
 
@@ -1049,13 +1359,14 @@ window.selectTag = function(tag) {
   note.updatedAt = Date.now();
   save();
   renderSidebar();
-  renderEditor(); 
+  renderEditor();
   closeModal();
 };
 window.removeTag = function(e, tag) {
   e.stopPropagation();
   if (S.tags.length <= 1) return;
   S.tags = S.tags.filter(t => t !== tag);
+  // update notes using this tag
   S.notes.forEach(n => { if (n.tag === tag) n.tag = S.tags[0]; });
   save();
   const note = activeNote();
@@ -1066,8 +1377,9 @@ window.removeTag = function(e, tag) {
 let _modalOpen = false;
 function showModal(html) {
   const root = document.getElementById('modal-root');
-  root.innerHTML = `<div id="modal-backdrop" class="modal-backdrop">${html}</div>`;
+  root.innerHTML = `<div class="modal-backdrop" id="modal-backdrop"><div class="modal-box">${html}</div></div>`;
   _modalOpen = true;
+  // Close on backdrop click
   document.getElementById('modal-backdrop')?.addEventListener('click', e => {
     if (e.target.id === 'modal-backdrop') closeModal();
   });
@@ -1122,6 +1434,7 @@ function initSpeech() {
 
   recognition.onend = () => {
     if (!S.recording.active) {
+      // insert text to note
       if (finalTranscript.trim()) {
         const note = activeNote();
         if (note) {
@@ -1134,6 +1447,7 @@ function initSpeech() {
       finalTranscript = '';
       stopWave();
     } else {
+      // restart if still recording
       try { recognition.start(); } catch {}
     }
   };
@@ -1177,27 +1491,49 @@ function startWave() {
     });
   }, 120);
 }
-function stopWave() { clearInterval(waveInterval); }
+function stopWave() {
+  clearInterval(waveInterval);
+}
 
 /* ── MOBILE CHAT SHEET ── */
 function openMobileChat() {
   const root = document.getElementById('modal-root');
   root.innerHTML = `
     <div class="mobile-sheet-backdrop" onclick="closeMobileChat()"></div>
-    <div class="mobile-sheet"><div class="sheet-handle"><div class="sheet-handle-bar"></div></div>
-      <div class="chat-header"><div class="chat-avatar">🤖</div><div><div class="chat-title">AI Asisten</div><div class="chat-status"><span class="status-dot"></span><span>Online</span></div></div></div>
-      <div id="mobile-chat-messages" class="chat-messages"></div>
-      <div class="chat-quick"><button class="quick-btn" data-q="Rangkum catatan ini">Rangkum</button><button class="quick-btn" data-q="Buat soal latihan">Soal latihan</button><button class="quick-btn" data-q="Jelaskan lebih detail">Jelaskan</button></div>
-      <div class="chat-input-wrap">
-        <button class="icon-btn-sm" onclick="document.getElementById('file-input').click()">📷</button>
-        <div class="chat-input-box"><input type="text" id="mobile-chat-input" placeholder="Ketik pesan..."><button onclick="sendChat(document.getElementById('mobile-chat-input').value)">➤</button></div>
+    <div class="mobile-sheet">
+      <div class="sheet-handle"><div class="sheet-handle-bar"></div></div>
+      <div class="chat-header">
+        <div class="chat-avatar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div><p class="chat-title">AI Asisten</p><div class="chat-status"><div class="status-dot"></div><span>Online</span></div></div>
+        <button class="modal-close" onclick="closeMobileChat()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-    </div>
-  `;
+      <div id="mobile-chat-messages" class="chat-messages" style="flex:1;min-height:200px;"></div>
+      <div class="chat-quick">
+        <button class="quick-btn" onclick="sendChat('Rangkum catatan ini')">Rangkum</button>
+        <button class="quick-btn" onclick="sendChat('Buat soal latihan')">Soal latihan</button>
+        <button class="quick-btn" onclick="sendChat('Jelaskan lebih lanjut')">Jelaskan</button>
+      </div>
+      <div class="chat-input-wrap">
+        <button class="icon-btn-sm" onclick="document.getElementById('file-input').click()" title="Upload gambar OCR">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+        </button>
+        <div class="chat-input-box">
+          <input id="mobile-chat-input" type="text" placeholder="Tanya sesuatu..." autocomplete="off"
+            onkeydown="if(event.key==='Enter')sendChat(this.value)"/>
+          <button onclick="sendChat(document.getElementById('mobile-chat-input').value)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>`;
   renderChatMessages('mobile-chat-messages');
   setTimeout(() => document.getElementById('mobile-chat-input')?.focus(), 100);
 }
-window.closeMobileChat = function() { document.getElementById('modal-root').innerHTML = ''; };
+window.closeMobileChat = function() {
+  document.getElementById('modal-root').innerHTML = '';
+};
 
 /* ── INIT ── */
 document.addEventListener('DOMContentLoaded', () => {
@@ -1208,12 +1544,23 @@ document.addEventListener('DOMContentLoaded', () => {
   renderEditor();
   renderChatMessages('chat-messages');
 
-  document.getElementById('search-input')?.addEventListener('input', e => { S.search = e.target.value; renderSidebar(); });
+  /* Search */
+  document.getElementById('search-input')?.addEventListener('input', e => {
+    S.search = e.target.value;
+    renderSidebar();
+  });
+
+  /* New note */
   document.getElementById('btn-new-note')?.addEventListener('click', newNote);
+
+  /* Settings */
   document.getElementById('btn-settings')?.addEventListener('click', openSettings);
+
+  /* Sidebar toggle (mobile) */
   document.getElementById('btn-menu')?.addEventListener('click', openSidebar);
   document.getElementById('sidebar-overlay')?.addEventListener('click', closeSidebar);
 
+  /* Note list clicks (delegation) */
   document.getElementById('note-list')?.addEventListener('click', e => {
     const item = e.target.closest('.note-item');
     const del  = e.target.closest('.note-delete');
@@ -1228,33 +1575,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('btn-mic')?.addEventListener('click', () => S.recording.active ? stopRecording() : startRecording());
+  /* Mic button */
+  document.getElementById('btn-mic')?.addEventListener('click', () => {
+    S.recording.active ? stopRecording() : startRecording();
+  });
+
+  /* Quiz header button */
   document.getElementById('btn-quiz-header')?.addEventListener('click', openQuiz);
-  document.getElementById('btn-send')?.addEventListener('click', () => sendChat(document.getElementById('chat-input').value));
-  document.getElementById('chat-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(e.target.value); });
-  document.querySelectorAll('.quick-btn[data-q]').forEach(btn => btn.addEventListener('click', () => sendChat(btn.dataset.q)));
-  document.getElementById('btn-ocr-chat')?.addEventListener('click', () => document.getElementById('file-input').click());
-  document.getElementById('file-input')?.addEventListener('change', e => { const file = e.target.files?.[0]; if (file) handleImage(file); });
+
+  /* Chat desktop */
+  document.getElementById('btn-send')?.addEventListener('click', () => {
+    sendChat(document.getElementById('chat-input').value);
+  });
+  document.getElementById('chat-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendChat(e.target.value);
+  });
+  document.querySelectorAll('.quick-btn[data-q]').forEach(btn => {
+    btn.addEventListener('click', () => sendChat(btn.dataset.q));
+  });
+  document.getElementById('btn-ocr-chat')?.addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+
+  /* File input */
+  document.getElementById('file-input')?.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    if (file) handleImage(file);
+  });
+
+  /* Mobile nav */
   document.getElementById('nav-catatan')?.addEventListener('click', openSidebar);
   document.getElementById('nav-kuis')?.addEventListener('click', openQuiz);
   document.getElementById('nav-scan')?.addEventListener('click', () => document.getElementById('file-input').click());
   document.getElementById('nav-chat')?.addEventListener('click', openMobileChat);
 
-  /* ── KEYBOARD SHORTCUTS ── */
+  /* Keyboard shortcuts */
   document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); save(); showSavedBadge(); }
     if (e.key === 'Escape' && _modalOpen) closeModal();
-    
-    // ✅ FOCUS MODE: Ctrl + Shift + F
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
-      e.preventDefault();
-      document.getElementById('app').classList.toggle('app-focus');
-    }
-    
-    // 🖨️ PRINT / PDF: Ctrl + Shift + P
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
-      e.preventDefault();
-      window.print();
-    }
   });
 });
